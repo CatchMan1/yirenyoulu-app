@@ -215,7 +215,7 @@ class ChatMessage(Record, Base):
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(20), default='pending')
     error_code: Mapped[str | None] = mapped_column(String(100))
-    __table_args__ = (UniqueConstraint('session_id', 'sequence'), UniqueConstraint('session_id', 'client_message_id', 'role'),
+    __table_args__ = (UniqueConstraint('session_id', 'sequence', name='uq_chat_message_sequence'), UniqueConstraint('session_id', 'client_message_id', 'role', name='uq_chat_message_client_role'),
         CheckConstraint("role IN ('user','assistant')", name='valid_role'),
         CheckConstraint("status IN ('pending','running','succeeded','failed')", name='valid_status'),)
 

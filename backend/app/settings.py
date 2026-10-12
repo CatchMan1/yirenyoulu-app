@@ -6,7 +6,7 @@ from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=None, extra='ignore')
+    model_config = SettingsConfigDict(env_file=None, extra='ignore', hide_input_in_errors=True)
     app_env: Literal['development', 'test', 'production'] = 'development'
     database_url: str
     ai_provider: Literal['disabled', 'mock'] = 'disabled'
@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def isolated_environment(self):
         url = make_url(self.database_url)
+        allowed_query = {'sslmode', 'sslrootcert', 'connect_timeout', 'application_name'}
+        if set(url.query) - allowed_query:
+            raise ValueError('Database query parameters cannot override the connection target')
         expected = {'development': 'yirenyoulu_dev', 'test': 'yirenyoulu_test', 'production': 'yirenyoulu_prod'}
         if url.drivername != 'postgresql+psycopg' or url.database != expected[self.app_env]:
             raise ValueError('Use the dedicated PostgreSQL database for APP_ENV')

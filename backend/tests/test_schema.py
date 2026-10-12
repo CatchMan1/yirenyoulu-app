@@ -97,3 +97,12 @@ def test_foreign_key_rejects_missing_place(db):
     db.add(Favorite(user_id='u1', place_id='missing'))
     with pytest.raises(IntegrityError):
         db.commit()
+
+
+def test_postgres_constraint_names_are_distinct_within_each_table():
+    # PostgreSQL backs UNIQUE with schema-visible indexes; SQLite permits the
+    # accidental duplicate names and therefore cannot catch this migration bug.
+    from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint
+    for table in Base.metadata.sorted_tables:
+        names = [c.name for c in table.constraints if isinstance(c, (UniqueConstraint, PrimaryKeyConstraint))]
+        assert len(names) == len(set(names)), f'duplicate PostgreSQL index-backed constraint in {table.name}'

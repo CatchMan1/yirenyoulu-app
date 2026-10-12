@@ -298,8 +298,8 @@ def upgrade():
     sa.CheckConstraint("status IN ('pending','running','succeeded','failed')", name=op.f('ck_chat_messages_valid_status')),
     sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.id'], name=op.f('fk_chat_messages_session_id_chat_sessions'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_chat_messages')),
-    sa.UniqueConstraint('session_id', 'client_message_id', 'role', name=op.f('uq_chat_messages_session_id')),
-    sa.UniqueConstraint('session_id', 'sequence', name=op.f('uq_chat_messages_session_id'))
+    sa.UniqueConstraint('session_id', 'client_message_id', 'role', name='uq_chat_message_client_role'),
+    sa.UniqueConstraint('session_id', 'sequence', name='uq_chat_message_sequence')
     )
     op.create_index(op.f('ix_chat_messages_session_id'), 'chat_messages', ['session_id'], unique=False)
     # ### end Alembic commands ###

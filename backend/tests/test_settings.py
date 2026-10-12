@@ -22,3 +22,10 @@ def test_default_has_no_database_connection(monkeypatch):
     monkeypatch.delenv('DATABASE_URL', raising=False)
     with pytest.raises(ValueError):
         Settings(_env_file=None)
+
+
+@pytest.mark.parametrize('query', ['dbname=yirenyoulu_prod', 'service=production', 'host=production',
+                                  'options=-csearch_path=private', 'user=legacy', 'port=5433'])
+def test_query_cannot_override_validated_connection(query):
+    with pytest.raises(ValueError):
+        Settings(app_env='test', database_url='postgresql+psycopg://localhost/yirenyoulu_test?' + query)
