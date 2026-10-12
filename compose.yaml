@@ -1,0 +1,19 @@
+name: yirenyoulu-v2-dev
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: yirenyoulu_dev
+      POSTGRES_USER: yirenyoulu_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set an independent development password}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - development_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yirenyoulu_dev -d yirenyoulu_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  development_db:
