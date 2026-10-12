@@ -32,19 +32,19 @@
 **Interfaces:** 输入旧前后端只读源码；输出独立 GitHub 仓库和经审查文件清单。`check_repository.py [--history]` 非零表示阻断提交/发布，仅输出路径与规则。
 - [x] 只读确认旧工作树、远程、HEAD，检查 GitHub 仓库无现有 refs。
 - [x] 克隆到独立同级目录，不复制旧历史；写下历史取舍与审查证据。
-- [ ] 编写 guard 测试：禁止数据库/签名/.env、检测可疑凭据，允许空白环境样例；历史某旧提交含禁止文件也必须失败。
-- [ ] 运行测试确认失败；实现允许清单/文件名和文本凭据检查；重新运行通过。
-- [ ] 配置 CI，并验证当前暂存及所有可达历史；创建独立阶段提交，普通 push 前重新读远端 refs。
+- [x] 编写 guard 测试：禁止数据库/签名/.env、检测可疑凭据，允许空白环境样例；历史某旧提交含禁止文件也必须失败。
+- [x] 运行测试确认失败；实现禁止文件名和文本凭据检查（源码迁入允许清单尚待前端阶段）；重新运行通过。
+- [x] 配置 CI，并验证当前暂存及所有可达历史；创建独立阶段提交，普通 push 前重新读远端 refs。
 
 ### Task 2: 契约与数据库基础
 **Files:** backend/app/settings.py、backend/app/db.py、backend/app/models.py、backend/alembic/env.py、backend/alembic/versions/0001_initial.py、backend/tests/test_schema.py、docs/database.md、compose.yaml。
 **Interfaces:** `Settings` 从显式环境读取；`Base.metadata`；`make_engine(url)`；`SessionLocal`；所有 UUID 字符串遵循契约。Alembic URL 来自同一隔离配置。
-- [ ] 编写 PostgreSQL 迁移测试：空库 upgrade head，downgrade base，再 upgrade；非法坐标/重复来源ID/重复收藏/重复任务幂等键拒绝。
-- [ ] 建立独立 .venv，锁定直接依赖；实现迁移、约束和禁止连接旧数据库的环境检查。
+- [x] 编写 PostgreSQL 迁移测试：空库 upgrade head，downgrade base，再 upgrade；非法坐标/重复来源ID/重复收藏/重复任务幂等键拒绝。
+- [x] 建立独立 .venv，锁定直接依赖；实现迁移、约束和禁止连接旧数据库的环境检查。
 - [ ] 测试先失败、实现后通过；SQLite 快速测试独立标注，不能替代 PostgreSQL。
-- [ ] 初始化仅 migrate；fixture 导入为独立显式命令，APP_ENV=production 必须拒绝。
-- [ ] 编写 pg_dump/pg_restore 及隔离恢复演练说明；执行本地可用验证，集成验证缺环境明确阻塞。
-- [ ] 提交并推送验证过的基础工作，汇报尚未验证项。
+- [x] 初始化仅 migrate；fixture 导入为独立显式命令，APP_ENV=production 必须拒绝。
+- [x] 编写 pg_dump/pg_restore 及隔离恢复演练说明；执行本地可用验证，集成验证缺环境明确阻塞。
+- [x] 提交并推送验证过的基础工作，汇报尚未验证项。
 
 ### Task 3: 认证、目录、收藏
 **Files:** backend/app/auth.py、backend/app/catalog.py、backend/app/favorites.py、backend/app/main.py、backend/tests/test_auth.py、test_catalog.py、test_permissions.py。

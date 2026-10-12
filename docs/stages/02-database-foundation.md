@@ -11,7 +11,12 @@
 ## 本地验证
 `PYTHONPATH=backend .venv/bin/python -m pytest backend/tests -q`：22通过、1跳过（PostgreSQL环境未配置）。另发布防护7项通过。
 `alembic upgrade head --sql`：成功生成339行PostgreSQL SQL；只证明离线编译，不代表已在PostgreSQL运行。
-CI执行结果在真实运行后补充。
+独立审查发现初始迁移两个 UNIQUE 同名、URL查询参数可覆盖数据库目标；新增7项回归测试先失败后通过，修复后本地29通过/1跳过，发布防护7项通过。
+首次 PostgreSQL CI（ea1bba9，run 38286974726）失败，约束同名修复提交 c4c6e8e；新CI真实结果待完成后记录。不得把失败运行忽略或算通过。
+
+## 审阅与处理
+独立代码审阅覆盖发布边界、数据库模型/迁移、隔离配置、fixture和CI；两个P1均已修复并补回归。约束名在尚无成功部署的初始迁移中修正，未改写Git历史。连接参数仅允许 sslmode/sslrootcert/connect_timeout/application_name，拒绝目标/身份覆盖参数。未发现需要递延的小项。
+GitHub完整CI日志凭据提取被自动审批拒绝，未执行；通过匿名公开状态API跟踪CI，不影响重跑验证。
 
 ## 未完成/未验证
 - 完整DTO/OpenAPI、业务路由、权限、认证、worker、协同推荐、前端迁入与联调仍未完成；表结构不等于闭环。
