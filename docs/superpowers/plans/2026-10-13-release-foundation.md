@@ -41,7 +41,7 @@
 **Interfaces:** `Settings` 从显式环境读取；`Base.metadata`；`make_engine(url)`；`SessionLocal`；所有 UUID 字符串遵循契约。Alembic URL 来自同一隔离配置。
 - [x] 编写 PostgreSQL 迁移测试：空库 upgrade head，downgrade base，再 upgrade；非法坐标/重复来源ID/重复收藏/重复任务幂等键拒绝。
 - [x] 建立独立 .venv，锁定直接依赖；实现迁移、约束和禁止连接旧数据库的环境检查。
-- [ ] 测试先失败、实现后通过；SQLite 快速测试独立标注，不能替代 PostgreSQL。
+- [x] 测试先失败、实现后通过；SQLite 快速测试独立标注，PostgreSQL CI run 38287209151通过。
 - [x] 初始化仅 migrate；fixture 导入为独立显式命令，APP_ENV=production 必须拒绝。
 - [x] 编写 pg_dump/pg_restore 及隔离恢复演练说明；执行本地可用验证，集成验证缺环境明确阻塞。
 - [x] 提交并推送验证过的基础工作，汇报尚未验证项。
