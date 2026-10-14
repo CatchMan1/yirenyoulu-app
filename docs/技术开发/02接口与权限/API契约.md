@@ -1,58 +1,105 @@
-# /api/v1 契约基线
-状态：设计，不表示已实现。实现后以 Pydantic 导出的 OpenAPI 为机器校验基线；前端不得使用 ESObject 掩盖契约分歧。
+# API契约
 
-## 通用
-UUID 用字符串；日期 YYYY-MM-DD；UTC timestamp 带 Z；金额整数分；未知字段 null。所有写请求拒绝未知字段。成功 `{"data": ..., "meta": null, "request_id": "uuid"}`；列表 data 数组，meta={page,page_size,total}。错误 `{"error":{"code":"...","message":"用户可理解内容","details":[]},"request_id":"uuid"}`。204 无 body。验证 details 只含字段路径与错误码，不回显密码或输入。服务端生成 request_id。Authorization Bearer；资源归属绝不信任客户端 user_id。
+适用鸿蒙与iOS，共用 `/api/v1`。版本：1.0.0-draft.1；状态：开发前契约，尚未由业务服务实现。
 
-## 路由
-| 方法/路径 | 输入与成功响应 | 身份及失败 |
+字段、必填/可空、枚举和各响应结构以 [OpenAPI](openapi.json) 为机器定义；跨字段和事务语义见 [数据传输结构](数据传输结构.md) 与 [联调与兼容规范](联调与兼容规范.md)。虚拟样例见 [协议样例](contract-examples.json)。
+
+## 协议概要
+
+- HTTPS为生产要求；环境域名注入，接口路径不随平台改变。JSON使用UTF-8和snake_case，写请求拒绝未知字段。
+- 成功体为`{data,meta,request_id}`；单对象meta=null，分页/游标使用对应meta。204无body；所有响应含X-Request-ID。
+- 错误体为`{error:{code,message,details:[{path,code}]},request_id}`，非2xx不伪装成功；details不回显输入。
+- UUID字符串、UTC时间以Z结尾、YYYY-MM-DD日历日期、CNY整数分；未知事实为null，单项/预算范围0..100000000，费用汇总上限为JavaScript最大安全整数。
+- 私有接口Bearer身份，user_id不接受客户端指定；资源归属错误404。可选身份仅推荐接口：无token可匿名，有无效token返回401。
+- 列表page=1起，page_size默认20上限50、page≤10000；消息使用before_sequence排他游标。数组参数重复键编码。
+
+## 接口索引
+
+| 方法/路径 | 功能 | 请求体 | 成功结果 | 身份 |
+|---|---|---|---|---|
+| POST /auth/register | 注册账户 | RegisterRequest | 201 UserResponse | 公开/凭据端点 |
+| POST /auth/login | 用户名或邮箱登录 | LoginRequest | 200 LoginResultResponse | 公开/凭据端点 |
+| POST /auth/refresh | 轮换刷新凭据 | RefreshRequest | 200 TokenPairResponse | 公开/凭据端点 |
+| POST /auth/logout | 撤销当前会话 | — | 204 无body | 本人 |
+| POST /auth/password-reset/request | 请求密码找回邮件 | RecoveryRequest | 202 DeliveryReceiptResponse | 公开/凭据端点 |
+| POST /auth/password-reset/confirm | 以单次凭据重置密码 | RecoveryConfirm | 204 无body | 公开/凭据端点 |
+| POST /auth/email-verification/request | 请求本人邮箱验证邮件 | — | 202 DeliveryReceiptResponse | 本人 |
+| POST /auth/email-verification/confirm | 确认本人邮箱验证 | VerificationConfirm | 204 无body | 本人 |
+| GET /me | 读取本人资料 | — | 200 UserResponse | 本人 |
+| PATCH /me | 更新本人资料 | ProfileUpdate | 200 UserResponse | 本人 |
+| POST /me/password | 修改密码并撤销所有会话 | PasswordChange | 204 无body | 本人 |
+| DELETE /me | 注销账户及私有内容 | AccountDelete | 204 无body | 本人 |
+| GET /cities | 浏览cities | — | 200 CityPageResponse | 公开/凭据端点 |
+| GET /categories | 浏览categories | — | 200 NamedEntryPageResponse | 公开/凭据端点 |
+| GET /tags | 浏览tags | — | 200 NamedEntryPageResponse | 公开/凭据端点 |
+| GET /places | 搜索和筛选有效地点 | — | 200 PlacePageResponse | 公开/凭据端点 |
+| GET /places/{place_id} | 读取有效地点详情 | — | 200 PlaceDetailResponse | 公开/凭据端点 |
+| GET /places/{place_id}/navigation | 获取受限供应商导航链接 | — | 200 NavigationResultResponse | 公开/凭据端点 |
+| GET /favorites | 浏览本人收藏 | — | 200 PlacePageResponse | 本人 |
+| PUT /favorites/{place_id} | 幂等收藏有效地点 | — | 204 无body | 本人 |
+| DELETE /favorites/{place_id} | 幂等取消收藏 | — | 204 无body | 本人 |
+| GET /trips | 浏览本人行程 | — | 200 TripSummaryPageResponse | 本人 |
+| POST /trips | 手动创建空行程；Idempotency-Key必填 | TripCreate | 201 TripResponse | 本人 |
+| GET /trips/{trip_id} | 读取本人每日行程 | — | 200 TripResponse | 本人 |
+| PATCH /trips/{trip_id} | 按版本编辑本人行程 | TripUpdate | 200 TripResponse | 本人 |
+| DELETE /trips/{trip_id} | 按版本删除本人行程 | — | 204 无body | 本人 |
+| POST /trips/{trip_id}/items | 添加目录地点并返回完整行程 | TripItemCreate | 201 TripResponse | 本人 |
+| PATCH /trips/{trip_id}/items/{item_id} | 编辑地点、日期、时间或备注 | TripItemUpdate | 200 TripResponse | 本人 |
+| DELETE /trips/{trip_id}/items/{item_id} | 删除地点并返回新版本行程 | — | 200 TripResponse | 本人 |
+| POST /planning-jobs | 创建可恢复的Agent规划任务；Idempotency-Key必填 | PlanningRequest | 202 JobResponse | 本人 |
+| GET /planning-jobs | 恢复本人规划任务 | — | 200 JobPageResponse | 本人 |
+| GET /planning-jobs/{job_id} | 读取本人任务结果 | — | 200 JobResponse | 本人 |
+| DELETE /planning-jobs/{job_id} | 取消未完成任务 | — | 200 JobResponse | 本人 |
+| POST /chat-sessions | 新建会话并可绑定本人行程 | ChatSessionCreate | 201 ChatSessionResponse | 本人 |
+| GET /chat-sessions | 浏览本人会话 | — | 200 ChatSessionPageResponse | 本人 |
+| GET /chat-sessions/{session_id} | 读取本人会话信息 | — | 200 ChatSessionResponse | 本人 |
+| PATCH /chat-sessions/{session_id} | 重命名本人会话 | ChatSessionUpdate | 200 ChatSessionResponse | 本人 |
+| DELETE /chat-sessions/{session_id} | 删除会话及消息 | — | 204 无body | 本人 |
+| GET /chat-sessions/{session_id}/messages | 读取消息并恢复失败或处理中轮次 | — | 200 MessageHistoryResponse | 本人 |
+| POST /chat-sessions/{session_id}/messages | 幂等发送一轮消息并返回完整轮次 | MessageCreate | 201 MessageTurnResponse | 本人 |
+| POST /behavior-events | 去重接收本人浏览行为 | BehaviorCreate | 202 BehaviorReceiptResponse | 本人 |
+| GET /recommendations | 协同或明确偏好/基础推荐 | — | 200 RecommendationResultResponse | 可匿名 |
+| GET /health/live | 存活检查 | — | 200 HealthResponse | 公开/凭据端点 |
+| GET /health/ready | 必要依赖就绪检查 | — | 200 HealthResponse | 公开/凭据端点 |
+
+## 返回与资源规则
+
+201表示已提交的新资源或幂等重放；202表示已持久化任务/事件或接受送信请求，不表示行程或邮件已完成。所有写入先提交再成功。日期/备注/预算编辑使用相同领域验证器。
+
+行程PATCH及地点POST/PATCH在JSON带version；行程及地点DELETE用query version，不带JSON body。账户DELETE的密码仅在JSON body传递并需网关验证。地点新增201返回完整Trip而不是单个item，客户端以返回version和items整体更新。
+
+公共地点只显示active；失效地点保留在本人收藏和行程快照中并警示，不能新加入行程。收藏幂等返回204；取消不存在的收藏也204。普通用户无目录写接口。
+
+地点搜索与推荐统一explicit_tags（all匹配），不使用tag别名。最高价格必须同时带price_unit，未知价格不满足硬上限；单位不能跨类混比。首版地点估算为null，行程估算单独记录；不从模型伪造地点事实。
+
+## 错误码
+
+| HTTP | code | 处理 |
 |---|---|---|
-| POST /auth/register | username(3..50), email, password(12..128), nickname? → 201 User | 匿名；409 ACCOUNT_CONFLICT，422 INVALID_INPUT；注册不等于邮箱已验证 |
-| POST /auth/login | identifier(用户名/邮箱), password → 200 TokenPair+User | 匿名；401 INVALID_CREDENTIALS；429 RATE_LIMITED |
-| POST /auth/refresh | refresh_token → 200 TokenPair | 轮换；401 SESSION_INVALID；重放撤销会话 |
-| POST /auth/logout | 无 → 204 | 当前会话撤销；过期令牌 401 |
-| GET /me | → User | 本人 |
-| PATCH /me | nickname?, signature?, preferences? → User | 本人；禁止改权限/状态 |
-| POST /me/password | current_password,new_password → 204 | 本人，撤销所有会话 |
-| DELETE /me | current_password → 204 | 本人；注销删除/匿名化策略有文档并撤销会话 |
-| GET /cities, /categories, /tags | → 分页目录 | 匿名 |
-| GET /places | q?, city_id?, kind?, category_id?, tag?, price_max_minor?, price_unit?, page,page_size → Place[] | 匿名仅 active；未知价格不谎称满足价格上限 |
-| GET /places/{id} | → PlaceDetail | 匿名；404 PLACE_NOT_FOUND |
-| GET /places/{id}/navigation | → {status,crs,destination,url?,reason?} | 匿名；无坐标返回 unavailable，前端保留地址 |
-| GET /favorites | → Place[] | 本人 |
-| PUT /favorites/{place_id} | 无 → 204 | 本人，幂等；必须有效地点 |
-| DELETE /favorites/{place_id} | 无 → 204 | 本人，幂等 |
-| POST /trips | Idempotency-Key；title,city_id,start_date,end_date,budget_minor?,preferences → 201 Trip | 本人手动建草稿 |
-| GET /trips | q?（标题关键词≤100）,分页 → TripSummary[] | 本人 |
-| GET /trips/{id} | → Trip，items 按日期/顺序，快照与当前有效状态 | 本人；跨用户404 |
-| PATCH /trips/{id} | version,title?,start_date?,end_date?,budget_minor? → Trip | 本人；409 VERSION_CONFLICT；缩短日期不得留下越界 items |
-| DELETE /trips/{id} | query version → 204 | 本人；级联处理 items、会话可选关联置空 |
-| POST /trips/{id}/items | version,place_id,date,start_minute,end_minute,note? → 201 Trip | 本人；全行程校验/快照/版本增长 |
-| PATCH /trips/{id}/items/{item_id} | version,place_id?,date?,start_minute?,end_minute?,note? → Trip | 本人；验证 item 的 trip_id |
-| DELETE /trips/{id}/items/{item_id} | query version → Trip | 本人；版本增长 |
-| POST /planning-jobs | Idempotency-Key header；city_id,start_date,end_date,budget_minor?,preferences,explicit_tags?,request_text → 202 Job | 本人；同键同输入复用任务，不同输入409 |
-| GET /planning-jobs | status?（可重复传值）,page,page_size → Job[] | 本人；按created_at/id倒序；恢复未终态任务 |
-| GET /planning-jobs/{id} | → Job(status,trip_id?,error_code?,warnings[]) | 本人；成功表示行程曾完整提交；主动删除后result_deleted=true，不重建 |
-| DELETE /planning-jobs/{id} | → Job | 本人；未终态可取消，终态409 |
-| GET/POST /chat-sessions | 分页；创建 title?,trip_id? → 201 Session | 本人；绑定行程须属于本人 |
-| PATCH/DELETE /chat-sessions/{id} | title / 无 → Session / 204 | 本人 |
-| GET /chat-sessions/{id}/messages | before_sequence?,limit<=50 → Message[] | 本人 |
-| POST /chat-sessions/{id}/messages | message_id(UUID),content(1..4000) → 201 MessageTurn | 本人；请求幂等；provider失败503/超时504，历史保留可重试状态 |
-| POST /behavior-events | event_id,place_id,type(view),occurred_at → 202 | 本人；事件去重；favorite/unfavorite/trip_add由服务端成功写入触发 |
-| GET /recommendations | city_id?,kind?,limit<=20,explicit_tags?,preferred_tags?,price_max_minor?,price_unit? → {items,reason,algorithm_version} | 匿名基础兜底，登录可协同；硬约束优先 |
-| GET /health/live,/health/ready | → 存活/依赖就绪 | 无敏感配置输出；DB未就绪503 |
+| 400 | BAD_REQUEST | JSON/协议语法非法 |
+| 401 | INVALID_CREDENTIALS / SESSION_INVALID / CURRENT_PASSWORD_INVALID | 只有SESSION_INVALID进入会话恢复；凭据或当前密码错误不自动刷新 |
+| 403 | ACCOUNT_DISABLED | 清理该账户会话并说明不可用 |
+| 404 | NOT_FOUND / PLACE_NOT_FOUND | 资源缺失或不属于本人 |
+| 409 | VERSION_CONFLICT / IDEMPOTENCY_CONFLICT / IDEMPOTENCY_KEY_EXPIRED | 拉取最新版本或使用新的明确操作意图 |
+| 409 | MESSAGE_IN_PROGRESS / SESSION_BUSY / MESSAGE_RETRY_EXPIRED / JOB_TERMINAL | 读取消息/任务，不并发追加或取消终态 |
+| 410 | RESOURCE_DELETED | 原创建结果已删除，不重新生成 |
+| 413 | PAYLOAD_TOO_LARGE | 请求体超过64KiB |
+| 415 | UNSUPPORTED_MEDIA_TYPE | JSON写请求须application/json |
+| 422 | INVALID_INPUT / PLAN_INVALID / BUDGET_EXCEEDED | 修正字段/业务组合 |
+| 422 | RECOVERY_TOKEN_INVALID / VERIFICATION_TOKEN_INVALID | 凭据无效/过期/已使用，不暴露细节 |
+| 429 | RATE_LIMITED | 按Retry-After整数秒等待 |
+| 500 | INTERNAL_ERROR | 保留request_id，不能假装成功 |
+| 503 | PROVIDER_UNAVAILABLE | 依赖未配置、失效或免费额度耗尽 |
+| 504 | PROVIDER_TIMEOUT | 会话回复外部超时，按消息状态恢复 |
 
-User 不返回 hash、权限内部字段或 token。TokenPair 为 access_token,refresh_token,token_type=Bearer,expires_in=900；仅认证响应返回。Place 包含 id/kind/name/city/category/tags/address/coordinates{longitude,latitude,crs}|null/price事实或null/estimate或null/status/provenance/is_test。Job 状态与设计文档相同。
+字段错误码为REQUIRED/UNKNOWN_FIELD/INVALID_TYPE/INVALID_FORMAT/OUT_OF_RANGE/INVALID_ENUM/INVALID_COMBINATION，path使用body.version、query.price_unit等稳定字段路径。错误枚举新增应向后兼容，客户端未知码按HTTP类别降级。任务失败error_code与HTTP错误不同：查询已失败任务仍返回200 Job。
 
-## 跨模块不变量
-- 端到端 201/202/204 与错误码均需鸿蒙和 React Native 两端契约测试；分页总数来自相同过滤条件。
-- 任务 request_text 是本次明确要求；历史推荐仅为候选排序，不作为硬约束覆盖当前输入。
-- day/date/时间范围、重复地点、费用未知与越界、destination 等规则使用同一验证器。
-- 公共地点管理不开放普通用户写接口；数据导入由受限离线命令和专用账号完成。
-- 模拟服务响应包含 provider_mode=mock，fixture 仅存在开发/测试库；production 启动检查拒绝 mock。
+## 账户恢复的发布条件
 
-## 字段规范与价格过滤
+密码找回与邮箱验证契约已经定义；真实送信渠道与应用回链方式待配置。未启用发送服务统一503，不能返回已发送；启用后请求找回对存在/不存在邮箱均202 accepted，避免枚举。重置凭据15分钟、验证凭据30分钟、单次使用且只存摘要。找回成功撤销全部会话，验证凭据必须属于当前登录账户。
 
-字段定义、快照、费用、任务结果删除、手动创建幂等和DELETE版本参数以[数据传输结构](数据传输结构.md)为准。GET /favorites保留失效地点摘要（status=inactive）供查看与取消收藏；不开放其新加入行程能力。
+短信、微信、订单、支付、预订与数据管理API不属于首版。地图提供方、免费模型和邮箱服务的选择不改变公共协议；未验证的真实服务独立列为发布依赖。
 
-价格过滤：GET /places与GET /recommendations提交price_max_minor时必须同时提交price_unit=entry/night/person，否则422；过滤只匹配同单位已知价格，不跨单位比较。price_unit单独提交可筛同单位，未知价格不进入硬上限结果。
+## 实现一致性
+
+实施后从FastAPI/Pydantic导出OpenAPI，与本设计按operationId、路径、字段、必填性、空值、枚举、状态码和鉴权做语义比较；差异先修改契约并审阅，不靠忽略字段或手工强制转换兼容。OpenAPI遵循[官方3.1规范](https://spec.openapis.org/oas/v3.1.0.html)，输出模型按[FastAPI响应模型](https://fastapi.tiangolo.com/tutorial/response-model/)限制公开字段。

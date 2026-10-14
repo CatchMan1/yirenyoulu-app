@@ -1,0 +1,346 @@
+{
+  "description": "开发/测试专用虚拟协议样例，不是生产地点数据或已实现服务证据。",
+  "cases": [
+    {
+      "name": "planning-create",
+      "method": "post",
+      "path": "/planning-jobs",
+      "headers": {
+        "Idempotency-Key": "00000000-0000-4000-8000-000000000004"
+      },
+      "request": {
+        "city_id": "00000000-0000-4000-8000-000000000001",
+        "start_date": "2027-01-01",
+        "end_date": "2027-01-02",
+        "budget_minor": null,
+        "preferences": {
+          "tags": [],
+          "pace": "relaxed"
+        },
+        "explicit_tags": [],
+        "request_text": "慢节奏，信息缺失时说明"
+      },
+      "status": 202,
+      "response": {
+        "data": {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "status": "queued",
+          "trip_id": null,
+          "result_deleted": false,
+          "error_code": null,
+          "warnings": [],
+          "created_at": "2027-01-01T00:00:00Z",
+          "updated_at": "2027-01-01T00:00:00Z",
+          "deadline": "2027-01-01T00:02:00Z",
+          "provider_mode": "mock"
+        },
+        "meta": null,
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "manual-trip-create",
+      "method": "post",
+      "path": "/trips",
+      "headers": {
+        "Idempotency-Key": "00000000-0000-4000-8000-000000000003"
+      },
+      "request": {
+        "title": "【测试】虚拟行程",
+        "city_id": "00000000-0000-4000-8000-000000000001",
+        "start_date": "2027-01-01",
+        "end_date": "2027-01-02"
+      },
+      "status": 201,
+      "response": {
+        "data": {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "title": "【测试】虚拟行程",
+          "city_id": "00000000-0000-4000-8000-000000000001",
+          "start_date": "2027-01-01",
+          "end_date": "2027-01-02",
+          "budget_minor": null,
+          "version": 1,
+          "created_at": "2027-01-01T00:00:00Z",
+          "updated_at": "2027-01-01T00:00:00Z",
+          "preferences": {
+            "tags": [],
+            "pace": "normal"
+          },
+          "items": [],
+          "cost_summary": {
+            "known_cost_minor": 0,
+            "estimated_cost_minor": null,
+            "unknown_item_count": 0,
+            "currency": "CNY",
+            "complete": true
+          },
+          "warnings": []
+        },
+        "meta": null,
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "place-page",
+      "method": "get",
+      "path": "/places",
+      "query": {
+        "city_id": "00000000-0000-4000-8000-000000000001",
+        "page": 1,
+        "page_size": 20
+      },
+      "status": 200,
+      "response": {
+        "data": [
+          {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "kind": "attraction",
+            "name": "【测试】虚拟景点",
+            "city": {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "code": "fixture-city",
+              "name": "【测试】虚拟城市",
+              "timezone": "Asia/Shanghai"
+            },
+            "category": null,
+            "tags": [],
+            "address": null,
+            "coordinates": null,
+            "price": null,
+            "estimate": null,
+            "status": "active",
+            "provenance": {
+              "source_name": "fixture",
+              "source_url": null,
+              "checked_at": null
+            },
+            "is_test": true
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "page_size": 20,
+          "total": 1,
+          "has_more": false
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "empty-page",
+      "method": "get",
+      "path": "/favorites",
+      "status": 200,
+      "response": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "page_size": 20,
+          "total": 0,
+          "has_more": false
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "no-coordinate-navigation",
+      "method": "get",
+      "path": "/places/{place_id}/navigation",
+      "path_values": {
+        "place_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "status": 200,
+      "response": {
+        "data": {
+          "status": "unavailable",
+          "provider": "none",
+          "mode": "walking",
+          "destination": {
+            "place_id": "00000000-0000-4000-8000-000000000002",
+            "name": "【测试】虚拟景点",
+            "address": null,
+            "coordinates": null
+          },
+          "url": null,
+          "reason": "NO_COORDINATES"
+        },
+        "meta": null,
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "conflict",
+      "method": "patch",
+      "path": "/trips/{trip_id}",
+      "path_values": {
+        "trip_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "request": {
+        "version": 1,
+        "title": "修改标题"
+      },
+      "status": 409,
+      "response": {
+        "error": {
+          "code": "VERSION_CONFLICT",
+          "message": "行程已更新，请刷新后重试",
+          "details": []
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "logout-no-content",
+      "method": "post",
+      "path": "/auth/logout",
+      "status": 204
+    },
+    {
+      "name": "invalid-field",
+      "method": "post",
+      "path": "/trips",
+      "headers": {
+        "Idempotency-Key": "00000000-0000-4000-8000-000000000003"
+      },
+      "request": {
+        "title": "【测试】虚拟行程",
+        "city_id": "00000000-0000-4000-8000-000000000001",
+        "start_date": "2027-01-01",
+        "end_date": "2027-01-02",
+        "user_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "request_valid": false,
+      "status": 422,
+      "response": {
+        "error": {
+          "code": "INVALID_INPUT",
+          "message": "请求字段不合法",
+          "details": [
+            {
+              "path": "body.user_id",
+              "code": "UNKNOWN_FIELD"
+            }
+          ]
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "hotel-null-minutes",
+      "method": "post",
+      "path": "/trips/{trip_id}/items",
+      "path_values": {
+        "trip_id": "00000000-0000-4000-8000-000000000003"
+      },
+      "request": {
+        "version": 1,
+        "place_id": "00000000-0000-4000-8000-000000000005",
+        "date": "2027-01-01",
+        "start_minute": null,
+        "end_minute": null
+      },
+      "request_only": true,
+      "semantic_note": "结构样例；该UUID只是未实例化的虚拟酒店标识，必须由测试显式创建有效同城hotel才能通过业务验证。"
+    },
+    {
+      "name": "deleted-planning-result",
+      "method": "get",
+      "path": "/planning-jobs/{job_id}",
+      "path_values": {
+        "job_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "status": 200,
+      "response": {
+        "data": {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "status": "succeeded",
+          "trip_id": null,
+          "result_deleted": true,
+          "error_code": null,
+          "warnings": [],
+          "created_at": "2027-01-01T00:00:00Z",
+          "updated_at": "2027-01-01T00:00:00Z",
+          "deadline": "2027-01-01T00:02:00Z",
+          "provider_mode": "mock"
+        },
+        "meta": null,
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "failed-message-history",
+      "method": "get",
+      "path": "/chat-sessions/{session_id}/messages",
+      "path_values": {
+        "session_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "status": 200,
+      "response": {
+        "data": [
+          {
+            "id": "00000000-0000-4000-8000-000000000010",
+            "message_id": "00000000-0000-4000-8000-000000000007",
+            "sequence": 1,
+            "role": "user",
+            "content": "有哪些已经确认的信息？",
+            "status": "succeeded",
+            "error_code": null,
+            "created_at": "2027-01-01T00:00:00Z"
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "message_id": "00000000-0000-4000-8000-000000000007",
+            "sequence": 2,
+            "role": "assistant",
+            "content": "",
+            "status": "failed",
+            "error_code": "PROVIDER_TIMEOUT",
+            "created_at": "2027-01-01T00:00:00Z"
+          }
+        ],
+        "meta": {
+          "next_before_sequence": null,
+          "has_more": false
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    },
+    {
+      "name": "message-retry-request",
+      "method": "post",
+      "path": "/chat-sessions/{session_id}/messages",
+      "path_values": {
+        "session_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "request": {
+        "message_id": "00000000-0000-4000-8000-000000000007",
+        "content": "有哪些已经确认的信息？"
+      },
+      "request_only": true
+    },
+    {
+      "name": "page-limit-invalid",
+      "method": "get",
+      "path": "/places",
+      "query": {
+        "page_size": 51
+      },
+      "query_valid": false,
+      "status": 422,
+      "response": {
+        "error": {
+          "code": "INVALID_INPUT",
+          "message": "分页大小超出范围",
+          "details": [
+            {
+              "path": "query.page_size",
+              "code": "OUT_OF_RANGE"
+            }
+          ]
+        },
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
+    }
+  ]
+}
