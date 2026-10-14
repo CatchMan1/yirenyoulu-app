@@ -1,5 +1,6 @@
 # 一人有路发布基础 Implementation Plan
 
+> 历史阶段资料：2026-10-14双端v0.2设计已更新，当前依据为[新版文档导航](../../README.md)。下文曾有iOS替代鸿蒙的分支调整，已由最新“双端保留、分别验收”决定取代；勿直接按旧计划启动开发。
 > 2026-10-14 iOS分支调整：当前分支前端按 React Native/iOS 方向推进，见 [iOS分支说明](../../ios-branch.md)。本文原有鸿蒙前端步骤保留为历史，业务与安全要求继续有效。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. 按下列勾选项记录真实进度，不把静态检查标为联调通过。

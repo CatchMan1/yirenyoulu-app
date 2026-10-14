@@ -1,27 +1,23 @@
-# 一人有路 · 新版
+# 一人有路 · 鸿蒙与iOS新版
 
-当前分支 `feat/ios-react-native` 用于 iOS 新版，前端计划采用 React Native + TypeScript，后端继续使用 Python FastAPI。当前已实现的是后端数据库基础，**尚未创建 iOS 前端工程，尚未达到生产或上架标准**。
+保留鸿蒙ArkTS/ArkUI，新增React Native + TypeScript iOS，共用Python FastAPI后端。本轮完成开发前文档整理与设计草案；当前只有数据库基础，尚无新版业务API和客户端工程，不具备生产或上架验收结论。
 
-鸿蒙版保留在原项目目录；本分支不修改原项目。平台调整和后续步骤见 [iOS 分支说明](docs/ios-branch.md)。
+## 开始阅读
 
-- [设计与范围](docs/superpowers/specs/2026-10-13-release-design.md)
-- [分阶段实施计划](docs/superpowers/plans/2026-10-13-release-foundation.md)
-- [旧代码审查](docs/source-audit.md)
-- [接口契约基线](docs/api-contract.md)（设计状态，尚未导出可验收 OpenAPI）
-- [第一阶段记录](docs/stages/01-foundation.md)
-- [数据库基础阶段](docs/stages/02-database-foundation.md)
-- [数据库初始化与备份恢复说明](docs/database.md)
+- [完整文档导航](docs/README.md)
+- [首版需求](docs/产品/02需求与体验/首版需求.md)
+- [双端技术架构](docs/技术开发/01架构/双端架构.md)
+- [待确认决策与阶段闸门](docs/产品/03范围与决策/决策与阶段闸门.md)
+- [原资料分类清单](docs/原资料分类与处理清单.md)
+- [数据库初始化与恢复](docs/技术开发/03数据库/迁移与备份恢复.md)
 
-## 隔离原则
-原项目及其两个 Gitee 仓库只读。新仓库不继承旧 Git 历史，不迁入旧环境、数据库、签名、依赖或数据集。前后端将在 `frontend/` 与 `backend/` 分别构建部署。
+原项目及两个Gitee仓库只读，新仓库独立环境/数据库/历史。前端目标目录frontend/harmony与frontend/ios，分别构建发布；本轮不创建工程。用户名/邮箱密码先行，AI仅使用免费服务，iOS地图供应商待定。测试数据闭环前不正式批量采集。
 
-首版以用户名/邮箱与密码登录；iOS 地图服务商待确定（目前讨论过高德与 Google Maps）；AI 仅允许免费接口，不自动购买或转付费。测试数据闭环通过之前禁止正式批量采集。
+## 已有检查
 
-## 当前可执行检查
 ```sh
 python3 -m unittest discover -s tests -v
 python3 scripts/check_repository.py --history
 ```
-检查包含工作树、暂存区、可达历史的禁止文件和常见凭据模式。它不等同于完整隐私审查，不能证明资源商用权；每次上传仍需人工审查拟提交文件及历史。
 
-不要从旧项目复制 `.env`。在新环境从 `.env.example` 填写独立配置；敏感字段样例必须为空。已提供数据库迁移、隔离配置及fixture导入；尚未提供可启动的新版业务服务，业务启动和部署随对应阶段交付。
+检查包括工作树、暂存区和可达历史，但不能代替人工隐私及资源授权审查。本地90历史资料不上传，禁止强制添加。配置从.env.example设置独立环境，敏感值不得写入文档。当前数据库基础的启动说明不等于新版业务服务已经可启动。
