@@ -1,0 +1,10 @@
+{
+  "src": [
+    "pages/LoginPage",
+    "pages/MainPage",
+    "pages/PlaceDetailPage",
+    "pages/TripDetailPage",
+    "pages/TripPlanningPage",
+    "pages/AiAssistantPage"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "brand_primary",
+      "value": "#FF6B35"
+    },
+    {
+      "name": "surface_neutral",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#666666"
+    },
+    {
+      "name": "status_error",
+      "value": "#B3261E"
+    },
+    {
+      "name": "surface_user",
+      "value": "#FFF1E8"
+    }
+  ]
+}

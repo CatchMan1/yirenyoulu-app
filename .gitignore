@@ -49,3 +49,5 @@ build/
 
 # Local development-agent instructions
 /AGENTS.md
+
+.mypy_cache/
