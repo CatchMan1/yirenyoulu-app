@@ -15,5 +15,30 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  api:
+    profiles: [backend]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: yirenyoulu-backend:development
+    environment: &backend-environment
+      APP_ENV: development
+      DATABASE_URL: ${CONTAINER_DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      AI_PROVIDER: ${AI_PROVIDER:-disabled}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-disabled}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+  planner:
+    profiles: [backend]
+    image: yirenyoulu-backend:development
+    environment: *backend-environment
+    command: [python, -m, app.worker]
+    depends_on:
+      db:
+        condition: service_healthy
 volumes:
   development_db:

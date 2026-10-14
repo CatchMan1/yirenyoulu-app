@@ -43,8 +43,18 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: python -m pip install -r backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - name: Static checks and executable contract artifacts
+        run: |
+          python -m ruff check --config backend/pyproject.toml backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py
+          python -m ruff format --check backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py
+          python -m mypy --config-file backend/pyproject.toml backend/app
+          python scripts/generate_response_models.py --check
+          python scripts/generate_harmony_models.py --check
+          python scripts/generate_data_dictionary.py --check
       - name: Fast tests (SQLite constraints, not PostgreSQL evidence)
         run: python -m pytest backend/tests -q
       - name: PostgreSQL migration round-trip and metadata drift
@@ -55,3 +65,26 @@ jobs:
         env:
           RUN_POSTGRES_TESTS: '1'
         run: python -m pytest backend/tests/test_schema.py -q
+      - name: PostgreSQL HTTP contract and concurrent requests
+        env:
+          ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
+        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py -q
+      - name: Backup restore and erasure replay
+        env:
+          ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
+          PG_DUMP_PATH: pg_dump
+          PG_RESTORE_PATH: pg_restore
+        run: |
+          pg_dump --version
+          python -m pytest backend/tests/test_restore.py -q
+  backend-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build backend image and verify non-root runtime
+        run: |
+          docker build -f backend/Dockerfile -t yirenyoulu-ci .
+          test "$(docker run --rm yirenyoulu-ci id -u)" = "10001"
+          docker run --rm yirenyoulu-ci python -c "from app.main import create_application; from app.worker import main"

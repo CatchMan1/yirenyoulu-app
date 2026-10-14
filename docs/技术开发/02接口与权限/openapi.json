@@ -95,6 +95,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "注册账户",
@@ -161,6 +164,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "拒绝无效凭据统一INVALID_CREDENTIALS；认证响应no-store。",
@@ -227,6 +233,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "不自动重试；旧令牌重放撤销其会话。网络丢失旋转结果时重新登录。",
@@ -281,6 +290,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "撤销当前会话"
@@ -387,6 +408,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "有效期15分钟，成功后撤销全部会话；过期、无效、已使用均422 RECOVERY_TOKEN_INVALID。",
@@ -451,6 +475,15 @@
           },
           "503": {
             "$ref": "#/components/responses/Error503"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
           }
         },
         "description": "邮箱已验证也返回accepted；发送频率受限。"
@@ -504,6 +537,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "令牌归属当前账户，有效期30分钟，错误统一422 VERIFICATION_TOKEN_INVALID。",
@@ -565,6 +601,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "读取本人资料"
@@ -623,6 +671,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "preferences提供时整体替换；用户名/邮箱/权限不可修改。",
@@ -684,6 +735,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "JSON body含当前密码，不能放query；成功撤销所有会话并取消任务。",
@@ -747,6 +801,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "旧密码错误401 CURRENT_PASSWORD_INVALID，不能触发自动刷新；成功后客户端清理身份。",
@@ -831,6 +888,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "浏览cities"
@@ -905,6 +974,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "浏览categories"
@@ -979,6 +1060,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "浏览tags"
@@ -1162,6 +1255,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "explicit_tags为all匹配；价格上限须带price_unit；未知价不满足硬上限。"
@@ -1216,6 +1321,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "失效地点公开详情404 PLACE_NOT_FOUND；本人收藏/行程仍可读取失效摘要。"
@@ -1318,6 +1435,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "供应商未启用、缺坐标、不支持CRS等返回200 unavailable，不生成假链接或假时长。"
@@ -1419,6 +1548,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "包括inactive摘要；按收藏时间/id倒序。"
@@ -1476,6 +1617,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "已收藏返回204不新增行为；未收藏但地点失效404。"
@@ -1528,6 +1681,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "本人没有此收藏也204，不改变其他用户收藏。"
@@ -1612,6 +1777,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "浏览本人行程"
@@ -1724,6 +1901,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "同键同输入重放201，同键异输入409；原结果已删410；空行程不代表已完成规划。",
@@ -1808,6 +1988,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "读取本人每日行程"
@@ -1882,6 +2074,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "城市不可修改；日期变更不能留下越界地点或退房日。",
@@ -1968,6 +2163,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "删除关联地点，聊天行程关联置空；生成任务保留结果删除墓碑。"
@@ -2044,6 +2251,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "地点kind由目录判断，住宿分钟均null；禁止传快照/坐标/费用事实。",
@@ -2150,6 +2360,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "编辑地点、日期、时间或备注",
@@ -2244,6 +2457,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "删除地点并返回新版本行程"
@@ -2467,6 +2692,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "恢复本人规划任务"
@@ -2551,6 +2788,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "读取本人任务结果"
@@ -2616,6 +2865,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "只允许queued/running，取消提交后返回cancelled；终态409 JOB_TERMINAL。"
@@ -2679,6 +2940,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "空对象{}合法；不自动重试创建，首版会话新建不承诺幂等。",
@@ -2761,6 +3025,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "浏览本人会话"
@@ -2825,6 +3101,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "读取本人会话信息"
@@ -2896,6 +3184,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "重命名本人会话",
@@ -2961,6 +3252,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "处理中回复不得在会话删除后重新写入。"
@@ -3079,6 +3382,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "读取消息并恢复失败或处理中轮次"
@@ -3243,6 +3558,9 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "只接受view；相同event_id和输入重放duplicate，异输入409；occurred_at最大偏差5分钟。 先匹配已有事件及摘要，重复/冲突判断早于时间窗口；5分钟限制仅首次接收。",
@@ -3394,6 +3712,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "无凭据基础兜底；携带无效凭据401，不能默默降级。硬标签all匹配，历史仅排序。"
@@ -3435,6 +3765,18 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "description": "存活检查"
@@ -3479,6 +3821,15 @@
           },
           "503": {
             "$ref": "#/components/responses/Error503"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
           }
         },
         "description": "必需数据库不可用返回503统一错误体；可选地图/模型未启用不假装已经完成真实服务验收。"
