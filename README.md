@@ -1,6 +1,8 @@
 # 一人有路 · 新版
 
-ArkTS/ArkUI + Python FastAPI。面向正式上架的独立新版本，当前处于基础建设，**尚未达到生产或上架标准**。
+当前分支 `feat/ios-react-native` 用于 iOS 新版，前端计划采用 React Native + TypeScript，后端继续使用 Python FastAPI。当前已实现的是后端数据库基础，**尚未创建 iOS 前端工程，尚未达到生产或上架标准**。
+
+鸿蒙版保留在原项目目录；本分支不修改原项目。平台调整和后续步骤见 [iOS 分支说明](docs/ios-branch.md)。
 
 - [设计与范围](docs/superpowers/specs/2026-10-13-release-design.md)
 - [分阶段实施计划](docs/superpowers/plans/2026-10-13-release-foundation.md)
@@ -13,7 +15,7 @@ ArkTS/ArkUI + Python FastAPI。面向正式上架的独立新版本，当前处�
 ## 隔离原则
 原项目及其两个 Gitee 仓库只读。新仓库不继承旧 Git 历史，不迁入旧环境、数据库、签名、依赖或数据集。前后端将在 `frontend/` 与 `backend/` 分别构建部署。
 
-首版以用户名/邮箱与密码登录；高德地图；AI 仅允许免费接口，不自动购买或转付费。测试数据闭环通过之前禁止正式批量采集。
+首版以用户名/邮箱与密码登录；iOS 地图服务商待确定（目前讨论过高德与 Google Maps）；AI 仅允许免费接口，不自动购买或转付费。测试数据闭环通过之前禁止正式批量采集。
 
 ## 当前可执行检查
 ```sh
