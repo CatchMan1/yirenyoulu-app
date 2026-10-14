@@ -51,7 +51,7 @@ User 不返回 hash、权限内部字段或 token。TokenPair 为 access_token,r
 - 公共地点管理不开放普通用户写接口；数据导入由受限离线命令和专用账号完成。
 - 模拟服务响应包含 provider_mode=mock，fixture 仅存在开发/测试库；production 启动检查拒绝 mock。
 
-## v0.2 补充
+## 字段规范与价格过滤
 
 字段定义、快照、费用、任务结果删除、手动创建幂等和DELETE版本参数以[数据传输结构](数据传输结构.md)为准。GET /favorites保留失效地点摘要（status=inactive）供查看与取消收藏；不开放其新加入行程能力。
 

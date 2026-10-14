@@ -47,6 +47,5 @@ build/
 *.tar
 *.gz
 
-# Local-only original documents and attachments; may contain private material.
-/docs/产品/90历史资料/
-/docs/技术开发/90历史资料/
+# Local development-agent instructions
+/AGENTS.md

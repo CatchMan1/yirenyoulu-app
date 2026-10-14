@@ -1,8 +1,8 @@
 # iOS客户端开发设计
 
-技术方向React Native+TypeScript；当前分支feat/ios-react-native只有后端基础与文档，尚未创建前端、安装依赖、验证Xcode或签名。两端共享业务契约，ArkTS页面不直接复用。
+技术栈为React Native + TypeScript。两端共享业务契约，ArkTS页面不直接复用。
 
-目标目录frontend/ios，结构按features（auth/catalog/trips/chat/profile）与必要的api/components/platform分层。实施者倾向使用可维护原生iOS工程的工作流以接入地图和安全存储；Expo开发构建或原生工程的最终选择在SDK可用性小验证后记录，不承诺Expo Go容纳所有地图SDK。React Native、Xcode、最低iOS及依赖版本届时验证并锁定，不引用旧教程版本当当前标准。
+目标目录frontend/ios，结构按features（auth/catalog/trips/chat/profile）与必要的api/components/platform分层。采用支持可维护原生iOS工程的工作流以接入地图和安全存储；Expo开发构建或原生工程的最终选择在SDK可用性小验证后记录，不承诺Expo Go容纳所有地图SDK。React Native、Xcode、最低iOS及依赖版本届时验证并锁定，
 
 ## 客户端职责
 
@@ -14,10 +14,10 @@
 
 ## 应用标识与签名
 
-最终Bundle ID由用户开发者主体确认；此前讨论示例不是已注册标识。开发/测试/生产包标识、后端环境与地图应用限制需对应；签名证书、描述文件、私钥和发布凭据不得进Git。不得替用户加入开发者付费计划或接受协议。
+最终Bundle ID由用户开发者主体确认；开发/测试/生产包标识、后端环境与地图应用限制需对应；签名证书、描述文件、私钥和发布凭据不得进Git。开发者计划和相关费用由项目负责人确认。
 
 ## 验收
 
 先可重复模拟器构建与API联调，再用户可用设备真机验证权限、地图/外部导航、凭据存储、任务恢复和所有关键流程。模拟器通过不等于签名/商店审核通过。React Native成功启动不等于P01—P09通过；按验收矩阵保留每条结果和证据。
 
-发布前独立核对平台当前SDK要求、隐私信息、第三方SDK说明、账号注销和审核材料；本设计不保证上架结果。iOS先行不删除鸿蒙设计或豁免鸿蒙验收。
+发布前独立核对平台当前SDK要求、隐私信息、第三方SDK说明、账号注销和审核材料；两端独立完成发布验收。
