@@ -94,5 +94,5 @@ export function checkCursor(meta: CursorMeta): void {
 }
 export function priceText(place: Place): string {
   if (!place.price) { return '价格未知'; }
-  return '¥' + (place.price.amount_minor / 100).toFixed(2) + '/' + place.price.unit;
+  return '¥' + (place.price.amount_minor / 100).toFixed(2) + '/' + place.price.unit + (place.price.conditions ? '（' + place.price.conditions + '）' : '');
 }

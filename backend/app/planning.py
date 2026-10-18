@@ -9,10 +9,11 @@ from sqlalchemy import and_, or_, select, update
 
 from . import schemas as dto
 from .auth import checked_session, principal
-from .catalog import emit_behavior, paginate, timestamp, valid_place
+from .catalog import emit_behavior, lock_place_sources, paginate, timestamp, valid_place
 from .http import ApiError, aware, fail, result, utcnow
 from .models import Place, PlaceTag, PlanningJob, Trip, TripItem, User
 from .responses import RESPONSE_MODELS
+from .source_access import allowed, source_clause
 from .trips import canonical_hash, check_key, require_city_preferences, snapshot, validate_schedule
 
 TERMINAL = {"succeeded", "failed", "timed_out", "cancelled"}
@@ -71,7 +72,10 @@ class CatalogTools:
             fail(422, "PLAN_INVALID", "工具参数或调用次数超限")
         self.calls += 1
         stmt = select(Place).where(
-            Place.city_id == self._city_id, Place.status == "active", Place.kind == kind
+            Place.city_id == self._city_id,
+            Place.status == "active",
+            Place.kind == kind,
+            source_clause("planning"),
         )
         for tag in self._tags:
             stmt = stmt.where(Place.id.in_(select(PlaceTag.place_id).where(PlaceTag.tag_id == tag)))
@@ -156,7 +160,12 @@ def claim(sessions):
 
 def finish(sessions, claim_info, output=None, error=None):
     jid, uid, generation, payload = claim_info
+    if output is not None and (not isinstance(output, list) or not 1 <= len(output) <= 100):
+        fail(422, "PLAN_INVALID")
+    values = [dto.ItemCreate.model_validate({"version": 1, **raw}) for raw in (output or [])]
     with sessions.begin() as db:
+        # Source -> subject -> job order matches recommendation publication and rights cleanup.
+        _sources = lock_place_sources(db, [value.place_id for value in values])
         user = db.scalar(select(User).where(User.id == uid).with_for_update())
         job = db.scalar(
             select(PlanningJob)
@@ -196,9 +205,10 @@ def finish(sessions, claim_info, output=None, error=None):
             version=1,
         )
         items = []
-        for raw in output:
-            value = dto.ItemCreate.model_validate({"version": 1, **raw})
+        for value in values:
             place = valid_place(db, value.place_id)
+            if not allowed(db, place.source_id, "planning"):
+                fail(422, "PLAN_INVALID")
             if place.city_id != trip.city_id:
                 fail(422, "PLAN_INVALID")
             for tag in payload.get("explicit_tags", []):

@@ -1,6 +1,8 @@
 """New-release schema. No imports or database access to the legacy project."""
 
+import unicodedata
 from datetime import date, datetime
+from hashlib import sha256
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -31,6 +33,15 @@ class Base(DeclarativeBase):
             "pk": "pk_%(table_name)s",
         }
     )
+
+
+def normalize_place_name(value):
+    normalized = "".join(unicodedata.normalize("NFKC", value).casefold().split())
+    return sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def default_place_name(context):
+    return normalize_place_name(context.get_current_parameters()["name"])
 
 
 class Record:
@@ -103,6 +114,8 @@ class Place(Record, Base):
     __tablename__ = "places"
     kind: Mapped[str] = mapped_column(String(20), index=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
+    # Fixed-size digest avoids Unicode expansion and PostgreSQL btree entry limits.
+    normalized_name: Mapped[str | None] = mapped_column(String(200), default=default_place_name)
     description: Mapped[str | None] = mapped_column(Text)
     city_id: Mapped[str] = mapped_column(ForeignKey("cities.id"), index=True)
     category_id: Mapped[str | None] = mapped_column(ForeignKey("categories.id"))
@@ -114,6 +127,7 @@ class Place(Record, Base):
     coordinate_system: Mapped[str | None] = mapped_column(String(10))
     price_minor: Mapped[int | None] = mapped_column(Integer)
     price_unit: Mapped[str | None] = mapped_column(String(20))
+    price_conditions: Mapped[str | None] = mapped_column(String(1000))
     currency: Mapped[str] = mapped_column(String(3), default="CNY")
     price_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rating_value: Mapped[float | None] = mapped_column()
@@ -150,6 +164,7 @@ class Place(Record, Base):
         ),
         CheckConstraint("cuisine IS NULL OR kind='restaurant'", name="cuisine_kind"),
         Index("ix_places_city_kind_status", "city_id", "kind", "status"),
+        Index("ix_places_city_kind_normalized_name", "city_id", "kind", "normalized_name"),
     )
 
 
@@ -354,6 +369,9 @@ class ApiThrottle(Base):
 
 class RecommendationRun(Record, Base):
     __tablename__ = "recommendation_runs"
+    scope_key: Mapped[str] = mapped_column(
+        String(100), default="global", server_default="global", index=True
+    )
     algorithm_version: Mapped[str] = mapped_column(String(100))
     user_count: Mapped[int] = mapped_column(Integer)
     interaction_count: Mapped[int] = mapped_column(Integer)
@@ -372,3 +390,105 @@ class RecommendationSimilarity(Base):
     target_place_id: Mapped[str] = mapped_column(ForeignKey("places.id"), primary_key=True)
     score: Mapped[float] = mapped_column()
     __table_args__ = (CheckConstraint("score > 0 AND score <= 1", name="score_range"),)
+
+
+class SourcePolicy(Base):
+    __tablename__ = "source_policies"
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer)
+    license_url: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[str] = mapped_column(Text)
+    allowed_fields: Mapped[list] = mapped_column(JSON)
+    computation_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (CheckConstraint("version >= 1", name="positive_version"),)
+
+
+class ImportPermit(Record, Base):
+    __tablename__ = "import_permits"
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), unique=True)
+    city_ids: Mapped[list] = mapped_column(JSON)
+    max_records: Mapped[int] = mapped_column(Integer)
+    used_records: Mapped[int] = mapped_column(Integer, default=0)
+    max_requests: Mapped[int] = mapped_column(Integer, default=30)
+    used_requests: Mapped[int] = mapped_column(Integer, default=0)
+    reference: Mapped[str] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        CheckConstraint(
+            "max_records > 0 AND used_records >= 0 AND used_records <= max_records",
+            name="bounded_budget",
+        ),
+        CheckConstraint(
+            "max_requests > 0 AND used_requests >= 0 AND used_requests <= max_requests",
+            name="bounded_requests",
+        ),
+    )
+
+
+class ImportBatch(Record, Base):
+    __tablename__ = "import_batches"
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True)
+    city_id: Mapped[str] = mapped_column(ForeignKey("cities.id"))
+    kind: Mapped[str] = mapped_column(String(20))
+    key: Mapped[str] = mapped_column(String(100))
+    input_hash: Mapped[str] = mapped_column(String(64))
+    policy_version: Mapped[int] = mapped_column(Integer)
+    total: Mapped[int] = mapped_column(Integer)
+    cursor: Mapped[int] = mapped_column(Integer, default=0)
+    review_reference: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(20), default="staged")
+    __table_args__ = (
+        UniqueConstraint("source_id", "key"),
+        CheckConstraint("kind IN ('attraction','hotel','restaurant')", name="valid_kind"),
+        CheckConstraint(
+            "status IN ('staged','approved','completed','failed')", name="valid_status"
+        ),
+        CheckConstraint("total >= 0 AND cursor >= 0 AND cursor <= total", name="bounded_cursor"),
+    )
+
+
+class ImportRow(Record, Base):
+    __tablename__ = "import_rows"
+    batch_id: Mapped[str] = mapped_column(
+        ForeignKey("import_batches.id", ondelete="CASCADE"), index=True
+    )
+    sequence: Mapped[int] = mapped_column(Integer)
+    external_id: Mapped[str | None] = mapped_column(String(200))
+    payload: Mapped[dict | None] = mapped_column(JSON)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    review_reference: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20))
+    place_id: Mapped[str | None] = mapped_column(ForeignKey("places.id"))
+    __table_args__ = (
+        UniqueConstraint("batch_id", "sequence"),
+        CheckConstraint(
+            "status IN ('validated','rejected','duplicate','applied','skipped')",
+            name="valid_status",
+        ),
+    )
+
+
+class PlaceFieldProvenance(Base):
+    __tablename__ = "place_field_provenance"
+    place_id: Mapped[str] = mapped_column(
+        ForeignKey("places.id", ondelete="CASCADE"), primary_key=True
+    )
+    field: Mapped[str] = mapped_column(String(100), primary_key=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"))
+    external_id: Mapped[str] = mapped_column(String(200))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    missing_reason: Mapped[str | None] = mapped_column(String(100))
+    context: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CityAlias(Record, Base):
+    __tablename__ = "city_aliases"
+    city_id: Mapped[str] = mapped_column(ForeignKey("cities.id"), index=True)
+    namespace: Mapped[str] = mapped_column(String(100))
+    external_id: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(String(100))
+    parent_code: Mapped[str | None] = mapped_column(String(100))
+    __table_args__ = (UniqueConstraint("namespace", "external_id"),)

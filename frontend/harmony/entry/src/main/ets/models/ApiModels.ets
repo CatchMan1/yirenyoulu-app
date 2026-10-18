@@ -49,6 +49,7 @@ export interface PriceFact {
   currency: "CNY";
   unit: "entry" | "night" | "person";
   observed_at: string | null;
+  conditions?: string | null;
 }
 
 export interface Estimate {

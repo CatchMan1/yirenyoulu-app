@@ -115,6 +115,7 @@ class PriceFact(Output):
     observed_at: (
         Annotated[str, Field(pattern="Z$", json_schema_extra={"format": "date-time"})] | None
     )
+    conditions: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
 
 
 class Estimate(Output):

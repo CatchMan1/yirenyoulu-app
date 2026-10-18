@@ -68,7 +68,7 @@ jobs:
       - name: PostgreSQL HTTP contract and concurrent requests
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
-        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py -q
+        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py backend/tests/test_ingestion.py backend/tests/test_data_adapters.py backend/tests/test_data_operator.py backend/tests/test_recommendation_city.py -q
       - name: Backup restore and erasure replay
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
