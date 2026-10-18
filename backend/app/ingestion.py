@@ -139,12 +139,13 @@ def policy_for(db, source_id, lock=False):
     return policy
 
 
-def grant_permit(sessions, source_id, city_ids, max_records, reference, days=7):
+def grant_permit(sessions, source_id, city_ids, max_records, reference, days=7, max_requests=None):
     if (
         not reference.strip()
         or not 1 <= max_records <= 100000
         or not city_ids
         or not 1 <= days <= 30
+        or (max_requests is not None and not 1 <= max_requests <= 100000)
     ):
         raise ValueError("INVALID_PERMIT")
     with sessions.begin() as db:
@@ -155,6 +156,10 @@ def grant_permit(sessions, source_id, city_ids, max_records, reference, days=7):
         if row:
             if max_records < row.used_records:
                 raise ValueError("BUDGET_ALREADY_CONSUMED")
+            if max_requests is not None:
+                if max_requests < row.used_requests:
+                    raise ValueError("BUDGET_ALREADY_CONSUMED")
+                row.max_requests = max_requests
             row.max_records = max_records
             row.city_ids = list(set(city_ids))
             row.reference = reference
@@ -165,6 +170,7 @@ def grant_permit(sessions, source_id, city_ids, max_records, reference, days=7):
                     source_id=source_id,
                     city_ids=list(set(city_ids)),
                     max_records=max_records,
+                    max_requests=max_requests or 30,
                     reference=reference,
                     expires_at=utcnow() + timedelta(days=days),
                 )
@@ -246,7 +252,7 @@ def register_city(sessions, namespace, external_id, name, parent_code=None):
         return city.id
 
 
-def create_batch(sessions, source_id, city_id, kind, records, key):
+def create_batch(sessions, source_id, city_id, kind, records, key, guard=None):
     if (
         kind not in {"attraction", "hotel", "restaurant"}
         or not key
@@ -257,6 +263,8 @@ def create_batch(sessions, source_id, city_id, kind, records, key):
     digest = fingerprint(records)
     with sessions.begin() as db:
         policy = policy_for(db, source_id, True)
+        if guard:
+            guard(db)
         existing = db.scalar(
             select(ImportBatch).where(ImportBatch.source_id == source_id, ImportBatch.key == key)
         )
@@ -307,7 +315,7 @@ def create_batch(sessions, source_id, city_id, kind, records, key):
         return batch.id
 
 
-def approve_batch(sessions, batch_id, reference):
+def approve_batch(sessions, batch_id, reference, guard=None):
     if not reference.strip():
         raise ValueError("REVIEW_REFERENCE_REQUIRED")
     with sessions.begin() as db:
@@ -315,6 +323,8 @@ def approve_batch(sessions, batch_id, reference):
         if batch is None:
             raise ValueError("BATCH_NOT_FOUND")
         policy = policy_for(db, batch.source_id, True)
+        if guard:
+            guard(db)
         if batch.policy_version != policy.version:
             raise ValueError("POLICY_CHANGED_RESTAGE")
         if batch.status == "completed":
@@ -341,17 +351,20 @@ def _apply_row(db, batch, row, policy):
         )
     )
     if external:
+        row.result_action = "updated"
         place = db.get(Place, external.place_id)
         if place.city_id != batch.city_id or place.kind != batch.kind:
             raise ValueError("IDENTITY_CONFLICT")
         if external.fetched_at and aware(external.fetched_at) > value.observed_at:
             row.status = "skipped"
             row.error_code = "OLDER_OBSERVATION"
+            row.result_action = "older"
             row.place_id = place.id
             return
         if place.source_id != batch.source_id:
             # A reviewed cross-source alias never overwrites the primary source facts.
             external.fetched_at = value.observed_at
+            row.result_action = "alias"
             row.status = "skipped"
             row.place_id = place.id
             return
@@ -372,6 +385,7 @@ def _apply_row(db, batch, row, policy):
             row.status = "duplicate"
             row.error_code = "CROSS_SOURCE_REVIEW_REQUIRED"
             return
+        row.result_action = "inserted"
         place = Place(
             id=str(uuid4()),
             name=value.name,
@@ -442,7 +456,7 @@ def _apply_row(db, batch, row, policy):
     row.error_code = None
 
 
-def apply_batch(sessions, batch_id, max_rows=None):
+def apply_batch(sessions, batch_id, max_rows=None, guard=None):
     if max_rows is not None and max_rows < 1:
         raise ValueError("INVALID_ROW_LIMIT")
     processed = 0
@@ -456,6 +470,8 @@ def apply_batch(sessions, batch_id, max_rows=None):
                     raise ValueError("BATCH_NOT_FOUND")
                 source_id = batch.source_id
                 policy = policy_for(db, source_id, True)
+                if guard:
+                    guard(db)
                 batch = db.scalar(
                     select(ImportBatch)
                     .where(ImportBatch.id == batch_id)
@@ -619,6 +635,15 @@ def _purge_source_facts(db, source):
             provenance={"source_name": source.name, "source_url": None, "checked_at": None},
         )
         item.snapshot = snapshot
+    from .models import CollectionPage, CollectionRun
+
+    runs = select(CollectionRun.id).where(CollectionRun.source_id == source_id)
+    db.execute(update(CollectionPage).where(CollectionPage.run_id.in_(runs)).values(records=None))
+    db.execute(
+        update(CollectionRun)
+        .where(CollectionRun.source_id == source_id)
+        .values(status="failed", last_error="SOURCE_PURGED", lease_token=None, lease_until=None)
+    )
     batches = select(ImportBatch.id).where(ImportBatch.source_id == source_id)
     db.execute(update(ImportRow).where(ImportRow.batch_id.in_(batches)).values(payload=None))
 

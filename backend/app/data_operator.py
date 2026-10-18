@@ -100,7 +100,12 @@ def execute(args, sessions):
         return {"city_id": service.register_city(sessions, **read_json(args.file))}
     if action == "permit":
         service.grant_permit(
-            sessions, args.source, args.cities.split(","), args.limit, args.reference
+            sessions,
+            args.source,
+            args.cities.split(","),
+            args.limit,
+            args.reference,
+            max_requests=args.requests,
         )
         return {"permit": "recorded", "record_limit": args.limit}
     if action == "stage":
@@ -219,6 +224,7 @@ def parser():
     item.add_argument("--cities", required=True)
     item.add_argument("--limit", type=int, default=100)
     item.add_argument("--reference", required=True)
+    item.add_argument("--requests", type=int, default=None)
     item = commands.add_parser(
         "stage", help="validate records into isolation; does not activate places"
     )

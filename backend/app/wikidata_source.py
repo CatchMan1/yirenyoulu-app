@@ -56,7 +56,7 @@ def fetch_entities(sessions, source_id, ids, transport=None):
                     retry = response.status_code in {429, 502, 503, 504}
                     if retry:
                         raw = response.headers.get("Retry-After", str(attempt + 1))
-                        if not raw.isdigit() or int(raw) > 5 or attempt == 2:
+                        if len(raw) > 2 or not raw.isdigit() or int(raw) > 5 or attempt == 2:
                             raise ValueError("PROVIDER_RETRY_LATER")
                         time.sleep(int(raw))
                         continue

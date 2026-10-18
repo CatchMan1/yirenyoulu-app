@@ -460,6 +460,7 @@ class ImportRow(Record, Base):
     payload: Mapped[dict | None] = mapped_column(JSON)
     error_code: Mapped[str | None] = mapped_column(String(100))
     review_reference: Mapped[str | None] = mapped_column(Text)
+    result_action: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20))
     place_id: Mapped[str | None] = mapped_column(ForeignKey("places.id"))
     __table_args__ = (
@@ -492,3 +493,46 @@ class CityAlias(Record, Base):
     name: Mapped[str] = mapped_column(String(100))
     parent_code: Mapped[str | None] = mapped_column(String(100))
     __table_args__ = (UniqueConstraint("namespace", "external_id"),)
+
+
+class CollectionRun(Record, Base):
+    __tablename__ = "collection_runs"
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True)
+    run_key: Mapped[str] = mapped_column(String(100))
+    config_hash: Mapped[str] = mapped_column(String(64))
+    policy_version: Mapped[int] = mapped_column(Integer)
+    config: Mapped[dict] = mapped_column(JSON)
+    progress: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(100))
+    __table_args__ = (
+        UniqueConstraint("source_id", "run_key"),
+        CheckConstraint(
+            "status IN ('pending','running','staged','completed','failed','paused')",
+            name="valid_status",
+        ),
+    )
+
+
+class CollectionPage(Record, Base):
+    __tablename__ = "collection_pages"
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("collection_runs.id", ondelete="CASCADE"), index=True
+    )
+    city_qid: Mapped[str] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(20))
+    cursor: Mapped[str] = mapped_column(String(20), default="")
+    next_cursor: Mapped[str | None] = mapped_column(String(20))
+    ids: Mapped[list] = mapped_column(JSON)
+    records: Mapped[list | None] = mapped_column(JSON)
+    rejected: Mapped[list] = mapped_column(JSON, default=list)
+    batch_id: Mapped[str | None] = mapped_column(ForeignKey("import_batches.id"), unique=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "city_qid", "kind", "cursor", name="uq_collection_pages_position"
+        ),
+        CheckConstraint("kind IN ('attraction','hotel','restaurant')", name="valid_kind"),
+    )

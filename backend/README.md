@@ -4,7 +4,7 @@ Python3.11、FastAPI、SQLAlchemy同步事务、PostgreSQL16、Alembic。业务�
 
 ## 本地启动
 
-在仓库根目录使用独立虚拟环境，配置方式见[数据库初始化](../docs/技术开发/03数据库/迁移与备份恢复.md)。环境变量由IDE或私有环境管理器注入；应用不会自动读取.env，也不会启动时创建表。
+在仓库根目录使用独立虚拟环境，配置方式见[数据库初始化](../docs/技术开发/03数据库/迁移与备份恢复.md)。环境变量由IDE或私有环境管理器注入；应用不会自动读取.env，也不会启动时创建表。批量采集CLI可通过显式的`--env-file`读取指定配置，其他命令不因此自动加载.env。
 
 ```sh
 python3.11 -m venv .venv
@@ -32,7 +32,19 @@ AI_PROVIDER、MAIL_PROVIDER默认为disabled：缺配置返回明确不可用，
 
 ## 地点数据运营
 
-来源政策、城市登记、累计范围、Wikidata小样本获取、暂存审核、恢复、撤回和到期处理见[地点数据导入指南](../docs/技术开发/03数据库/地点数据导入与来源管理.md)。先运行迁移；原始数据和报告只保存在忽略的.local-data/目录。真实样本不随代码自动进入其他数据库，部署方须在自己的隔离环境复核来源并显式导入。
+按城市自动发现、分页读取和断点入库使用[批量采集运行指南](../docs/技术开发/03数据库/批量采集运行指南.md)。配置城市QID、类型、候选上限和累计预算后即可运行，不需要逐个提供地点ID或地图Key。先完成迁移，再在仓库根目录执行：
+
+```sh
+# 显式加载本地配置，将数据库升级至当前迁移（含0006_city_collection）。
+.venv/bin/python -m dotenv -f .env run --override -- .venv/bin/alembic -c backend/alembic.ini upgrade head
+# 默认只暂存；核对报告后，同一配置增加--apply即可入库。
+PYTHONPATH=backend .venv/bin/python -m app.bulk_collect --env-file .env run --config backend/examples/wikidata-bulk.json
+PYTHONPATH=backend .venv/bin/python -m app.bulk_collect --env-file .env run --config backend/examples/wikidata-bulk.json --apply
+```
+
+示例为北京、上海、杭州三城三类，每城每类最多发现100个候选；候选数不等于新入库数。首次运行按已核实的CC0结构化字段规则登记来源，核验城市事实并保存范围；已有过期、撤回或变更的政策不会自动恢复。`--apply`表示授权固定规则审核与应用，不代表人工核验过每条资料。状态查询和中断恢复见指南；同一任务键与配置重跑不重复导入已完成页面，修改配置须使用新任务键。
+
+来源政策、单独实体获取、人工审核、撤回和到期处理见[地点数据导入与来源管理](../docs/技术开发/03数据库/地点数据导入与来源管理.md)。原始数据和报告只保存在忽略的.local-data/目录。真实样本不随代码自动进入其他数据库，部署方须在自己的隔离环境复核来源并显式导入。
 
 ```sh
 PYTHONPATH=backend .venv/bin/python -m app.data_operator --help
