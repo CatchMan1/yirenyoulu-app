@@ -36,17 +36,13 @@ FROM read_parquet(?) WHERE bbox.xmin BETWEEN ? AND ? AND bbox.ymin BETWEEN ? AND
 AND (list_contains(taxonomy.hierarchy,'hotel') OR list_contains(taxonomy.hierarchy,'restaurant')) LIMIT 2000"""
 
 
-def main():
+def collect(cfg, output, url=URL):
+    """Write one complete bounded snapshot; never overwrite an existing file."""
     import duckdb
     from overture_transport import paced_file
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--city", choices=list(CITIES), required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    if args.output.exists():
-        parser.error("Output already exists; retain the downloaded snapshot for replay")
-    cfg = CITIES[args.city]
+    if output.exists():
+        raise ValueError("OUTPUT_ALREADY_EXISTS")
     c = duckdb.connect(config={"threads": 1, "memory_limit": "512MB"})
     timer = threading.Timer(900, c.interrupt)
     timer.daemon = True
@@ -57,7 +53,7 @@ def main():
         time.sleep(10)
         timer.start()
         west, south, east, north = cfg["bounds"]
-        with paced_file(URL) as (local_url, budget):
+        with paced_file(url) as (local_url, budget):
             cur = c.execute(QUERY, [local_url, west, east, south, north])
             columns = [d[0] for d in cur.description]
             records = [dict(zip(columns, row)) for row in cur.fetchall()]
@@ -65,35 +61,41 @@ def main():
         result = {
             "release": RELEASE,
             "city": cfg,
-            "source_url": URL,
+            "source_url": url,
             "records": records,
         }
-        args.output.parent.mkdir(parents=True, exist_ok=True)
+        output.parent.mkdir(parents=True, exist_ok=True)
         temp = None
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", dir=args.output.parent, delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", dir=output.parent, delete=False) as f:
                 temp = Path(f.name)
                 json.dump(result, f, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
-            os.link(temp, args.output)
+            os.link(temp, output)
         finally:
             if temp:
                 temp.unlink(missing_ok=True)
         print(
             json.dumps(
                 {
-                    "city": args.city,
+                    "city": cfg["qid"],
                     "downloaded_candidates": len(records),
-                    "path": str(args.output),
+                    "path": str(output),
                 }
             )
         )
     finally:
         timer.cancel()
         c.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--city", choices=list(CITIES), required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    collect(CITIES[args.city], args.output)
 
 
 if __name__ == "__main__":
