@@ -49,8 +49,8 @@ jobs:
       - run: python -m pip install -r backend/requirements-dev.txt
       - name: Static checks and executable contract artifacts
         run: |
-          python -m ruff check --config backend/pyproject.toml backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py
-          python -m ruff format --check backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py
+          python -m ruff check --config backend/pyproject.toml backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py scripts/collect_overture.py scripts/overture_transport.py scripts/import_overture.py
+          python -m ruff format --check backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py scripts/collect_overture.py scripts/overture_transport.py scripts/import_overture.py
           python -m mypy --config-file backend/pyproject.toml backend/app
           python scripts/generate_response_models.py --check
           python scripts/generate_harmony_models.py --check
@@ -68,7 +68,7 @@ jobs:
       - name: PostgreSQL HTTP contract and concurrent requests
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
-        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py backend/tests/test_ingestion.py backend/tests/test_data_adapters.py backend/tests/test_data_operator.py backend/tests/test_recommendation_city.py backend/tests/test_bulk_collection.py backend/tests/test_wikidata_discovery.py backend/tests/test_bulk_cli.py -q
+        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py backend/tests/test_ingestion.py backend/tests/test_data_adapters.py backend/tests/test_data_operator.py backend/tests/test_recommendation_city.py backend/tests/test_bulk_collection.py backend/tests/test_wikidata_discovery.py backend/tests/test_bulk_cli.py backend/tests/test_bulk_country.py backend/tests/test_overture.py backend/tests/test_overture_cli.py -q
       - name: Backup restore and erasure replay
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
@@ -89,4 +89,5 @@ jobs:
           test "$(docker run --rm yirenyoulu-ci id -u)" = "10001"
           docker run --rm yirenyoulu-ci python -c "from app.main import create_application; from app.worker import main"
           docker run --rm yirenyoulu-ci python -m app.bulk_collect --help
+          docker run --rm yirenyoulu-ci python -m app.bulk_country --help
           docker run --rm yirenyoulu-ci python -c "from pathlib import Path; from app.bulk_collect import load_config; load_config(Path('backend/examples/wikidata-bulk.json'))"

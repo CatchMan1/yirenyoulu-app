@@ -92,6 +92,30 @@ def discover_page(
     if type(page_size) is not int or not 1 <= page_size <= 20:
         raise ValueError("INVALID_PAGE_SIZE")
     query = _query(city_qid, kind, cursor, page_size)
+    return _fetch_page(sessions, source_id, query, cursor, page_size, transport)
+
+
+def discover_cities(
+    sessions, source_id, cursor=None, page_size=50, transport=None
+) -> DiscoveryPage:
+    """Candidate cities; hierarchy is resolved separately in bounded entity batches."""
+    if cursor is not None:
+        cursor = qid(cursor)
+    if type(page_size) is not int or not 1 <= page_size <= 50:
+        raise ValueError("INVALID_PAGE_SIZE")
+    after = 'FILTER(STR(?item) > "' + ENTITY_PREFIX + cursor + '")' if cursor else ""
+    query = f"""PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+SELECT DISTINCT ?item WHERE {{
+  ?item wdt:P17 wd:Q148 ; wdt:P31/wdt:P279* wd:Q515 .
+  FILTER(?item NOT IN (wd:Q8646, wd:Q14773))
+  FILTER NOT EXISTS {{ ?item wdt:P576 ?dissolved }}
+  {after}
+}} ORDER BY STR(?item) LIMIT {page_size + 1}"""
+    return _fetch_page(sessions, source_id, query, cursor, page_size, transport)
+
+
+def _fetch_page(sessions, source_id, query, cursor, page_size, transport):
     with httpx.Client(
         transport=transport,
         timeout=httpx.Timeout(25, connect=5),
