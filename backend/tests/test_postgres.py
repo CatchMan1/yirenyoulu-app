@@ -1,6 +1,7 @@
 """Run only against the dedicated integration database, never a supplied legacy DB."""
 
 import os
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -26,8 +27,47 @@ def test_postgres_migration_round_trip(monkeypatch):
         assert inspect(conn).get_table_names() == [], (
             "integration test must start with an empty dedicated database"
         )
+    command.upgrade(config, "a5552c8a1d17")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO cities (id,code,name,timezone) VALUES ('migration-city','migration-city','TEST city','Asia/Shanghai')"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO data_sources (id,name,kind,commercial_display_allowed,storage_allowed) VALUES ('migration-source','TEST existing provider','provider',false,false)"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO places (id,kind,name,city_id,source_id,currency,status,is_test) VALUES ('migration-place','attraction','ＴＥＳＴ  Museum','migration-city','migration-source','CNY','active',true)"
+            )
+        )
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO places (id,kind,name,city_id,source_id,currency,status,is_test) VALUES ('migration-expansion','attraction',:name,'migration-city','migration-source','CNY','active',true)"
+            ),
+            {"name": "ß" * 200},
+        )
     command.upgrade(config, "head")
     with engine.connect() as conn:
+        assert (
+            len(
+                conn.execute(
+                    text("SELECT normalized_name FROM places WHERE id='migration-expansion'")
+                ).scalar_one()
+            )
+            <= 64
+        )
+
+        assert (
+            conn.execute(
+                text("SELECT normalized_name FROM places WHERE id='migration-place'")
+            ).scalar_one()
+            == sha256(b"testmuseum").hexdigest()
+        )
         names = set(inspect(conn).get_table_names())
         assert {
             "users",

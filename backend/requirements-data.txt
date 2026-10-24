@@ -1,0 +1,2 @@
+# Optional local open-data downloader; not required by the API runtime.
+duckdb==1.4.1

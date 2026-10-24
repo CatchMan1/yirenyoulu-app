@@ -51,7 +51,13 @@ def test_account_delete_cleans_private_data_and_keeps_minimal_audit(api):
         assert db.scalars(select(AuthSession)).all() == []
 
 
-def test_login_rate_limit_is_shared_persistent_and_has_retry_header(api):
+def test_login_rate_limit_is_shared_persistent_and_has_retry_header(api, monkeypatch):
+    from types import SimpleNamespace
+
+    from app import limiting
+
+    # Fixed-window behavior must be tested within one deterministic minute.
+    monkeypatch.setattr(limiting, "time", SimpleNamespace(time=lambda: 1800000010))
     client, _ = api
     responses = [
         client.post("/api/v1/auth/login", json={"identifier": "missing", "password": "wrong"})

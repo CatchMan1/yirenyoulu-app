@@ -12,10 +12,11 @@ from sqlalchemy import delete, select
 
 from . import schemas as dto
 from .auth import checked_session, digest, principal
-from .catalog import emit_behavior, paginate, place_data, timestamp, valid_place
+from .catalog import emit_behavior, lock_place_sources, paginate, place_data, timestamp, valid_place
 from .http import aware, fail, result, utcnow
 from .models import ChatSession, City, IdempotencyRecord, Place, PlanningJob, Tag, Trip, TripItem
 from .responses import RESPONSE_MODELS
+from .source_access import allowed, redact_snapshot
 
 
 def canonical_hash(body):
@@ -161,7 +162,26 @@ def trip_summary(trip):
 
 def trip_data(db, trip):
     items = items_for(db, trip)
-    cost = cost_summary(items)
+    from types import SimpleNamespace
+
+    views = {
+        item.id: (
+            item.snapshot
+            if allowed(db, db.get(Place, item.place_id).source_id)
+            else redact_snapshot(item.snapshot, "来源授权已失效")
+        )
+        for item in items
+    }
+    cost = cost_summary(
+        [
+            SimpleNamespace(
+                place_id=i.place_id,
+                snapshot=views[i.id],
+                estimated_cost_minor=i.estimated_cost_minor,
+            )
+            for i in items
+        ]
+    )
     warnings = []
     payload = []
     items.sort(
@@ -174,7 +194,7 @@ def trip_data(db, trip):
     )
     for item in items:
         place = db.get(Place, item.place_id)
-        if place.status != "active":
+        if place.status != "active" or not allowed(db, place.source_id):
             warnings.append(
                 {"code": "PLACE_INACTIVE", "message": "保存的地点已失效", "place_id": place.id}
             )
@@ -186,8 +206,8 @@ def trip_data(db, trip):
                 "start_minute": item.start_minute,
                 "end_minute": item.end_minute,
                 "note": item.note,
-                "snapshot": item.snapshot,
-                "current_status": place.status,
+                "snapshot": views[item.id],
+                "current_status": place.status if allowed(db, place.source_id) else "inactive",
                 "estimated_cost_minor": item.estimated_cost_minor,
                 "estimate_reason": item.estimate_reason,
             }
@@ -342,6 +362,7 @@ def install(app, sessions):
     def add_item(request: Request, trip_id: dto.UUIDText, body: dto.ItemCreate):
         actor = principal(request)
         with sessions.begin() as db:
+            _sources = lock_place_sources(db, [body.place_id])
             checked_session(db, actor, True)
             trip = owned_trip(db, actor, trip_id, body.version)
             place = valid_place(db, body.place_id)
@@ -385,6 +406,9 @@ def install(app, sessions):
         if not changes:
             fail(422, "INVALID_INPUT")
         with sessions.begin() as db:
+            _sources = (
+                lock_place_sources(db, [changes["place_id"]]) if "place_id" in changes else []
+            )
             checked_session(db, actor, True)
             trip = owned_trip(db, actor, trip_id, body.version)
             item = db.scalar(

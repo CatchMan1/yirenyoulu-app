@@ -1,0 +1,11 @@
+{
+  "run_key": "mainland-pilot-001",
+  "cities": ["Q956", "Q8686", "Q4970"],
+  "kinds": ["attraction", "hotel", "restaurant"],
+  "per_city_kind_limit": 100,
+  "page_size": 20,
+  "record_budget": 3000,
+  "request_budget": 1000,
+  "interval_seconds": 1,
+  "review_reference": "本地操作员按固定规则授权：仅采集 Wikidata CC0 结构化事实；校验中国大陆城市、地点类型、来源与坐标；未知字段保留为空；默认暂存，显式 --apply 后按规则审核入库。候选上限不代表覆盖率或保证入库数量。"
+}
