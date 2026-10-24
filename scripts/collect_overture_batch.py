@@ -4,6 +4,8 @@ import argparse
 import json
 import math
 import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 from urllib.parse import urljoin
@@ -101,6 +103,30 @@ def partitions(client):
     return result
 
 
+def apply_file(path, catalog, args):
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("import_overture.py")),
+        "--snapshot",
+        str(path),
+        "--catalog",
+        str(catalog),
+        "--env-file",
+        str(args.env_file),
+        "--apply",
+        "--max-records",
+        str(args.max_records),
+    ]
+    result = subprocess.run(command, check=False)  # noqa: S603 -- fixed Python/script; argv, no shell
+    print(
+        json.dumps(
+            {"event": "snapshot_import", "path": str(path), "success": result.returncode == 0}
+        ),
+        flush=True,
+    )
+    return result.returncode == 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cities", type=Path, default=Path(".local-data/wikidata-country.json"))
@@ -108,7 +134,53 @@ def main():
     parser.add_argument(
         "--prepare-only", action="store_true", help="Generate list without collecting places"
     )
+    parser.add_argument(
+        "--apply", action="store_true", help="Validate and import each downloaded snapshot"
+    )
+    parser.add_argument(
+        "--env-file", type=Path, help="Explicit database environment file, required for apply"
+    )
+    parser.add_argument(
+        "--import-only", action="store_true", help="Import existing local snapshots without network"
+    )
+    parser.add_argument(
+        "--max-records", type=int, default=100000, help="Cumulative source import budget"
+    )
     args = parser.parse_args()
+    if (
+        (args.apply and not args.env_file)
+        or (args.import_only and not args.apply)
+        or (args.prepare_only and args.apply)
+    ):
+        parser.error(
+            "apply requires env-file; import-only requires apply; prepare-only cannot apply"
+        )
+    if not 1 <= args.max_records <= 100000:
+        parser.error("max-records must be 1..100000")
+    if args.apply:
+        from app.bulk_collect import check_readiness, load_settings
+        from app.db import make_engine
+
+        engine = make_engine(load_settings(args.env_file))
+        try:
+            check_readiness(engine)
+        finally:
+            engine.dispose()
+    if args.import_only:
+        catalog = args.output_dir / "cities.json"
+        if not catalog.exists():
+            parser.error("Missing cities.json in output-dir")
+        paths = sorted(args.output_dir.glob("Q*-*.json"))
+        if not paths:
+            parser.error("No downloaded city snapshots found")
+        failed = [str(path) for path in paths if not apply_file(path, catalog, args)]
+        print(
+            json.dumps({"event": "import_finished", "files": len(paths), "failed": failed}),
+            flush=True,
+        )
+        if failed:
+            raise SystemExit(1)
+        return
     ids = list(dict.fromkeys(json.loads(args.cities.read_text())["cities"]))
     if not ids or len(ids) > 5000 or any(not re.fullmatch(r"Q[1-9][0-9]*", q) for q in ids):
         parser.error("Expected 1..5000 Wikidata city IDs")
@@ -169,6 +241,8 @@ def main():
             path = args.output_dir / f"{qid}-{Path(part['url']).name.split('-')[1]}.json"
             if completed(path, cfg, part["url"]):
                 print(json.dumps({"event": "already_downloaded", "city": qid}), flush=True)
+                if args.apply and not apply_file(path, catalog_path, args):
+                    failures.append(qid)
                 continue
             print(
                 json.dumps(
@@ -178,6 +252,8 @@ def main():
             )
             try:
                 collect(cfg, path, part["url"])
+                if args.apply and not apply_file(path, catalog_path, args):
+                    failures.append(qid)
             except Exception as error:
                 failures.append(qid)
                 print(
@@ -198,4 +274,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        from app.bulk_collect import safe_error
+
+        print(json.dumps({"event": "error", "error": safe_error(error)}), flush=True)
+        raise SystemExit(1) from None

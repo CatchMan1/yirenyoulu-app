@@ -98,3 +98,39 @@ def test_batch_continues_after_failure_and_resumes(tmp_path, monkeypatch):
     m.main()
     assert calls == ["Q100", "Q200", "Q100"]
     assert json.loads((out / "report.json").read_text())["failed"] == []
+
+
+def test_import_only_uses_local_files_and_propagates_failure(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from app import bulk_collect, db
+
+    m = module()
+    (tmp_path / "cities.json").write_text("{}")
+    snapshot = tmp_path / "Q100-00015.json"
+    snapshot.write_text("{}")
+    monkeypatch.setattr(bulk_collect, "load_settings", lambda path: None)
+    monkeypatch.setattr(bulk_collect, "check_readiness", lambda engine: None)
+    monkeypatch.setattr(db, "make_engine", lambda settings: SimpleNamespace(dispose=lambda: None))
+    monkeypatch.setattr(
+        m.httpx, "Client", lambda **kw: pytest.fail("Offline import must not access network")
+    )
+    calls = []
+    monkeypatch.setattr(m, "apply_file", lambda path, catalog, args: calls.append(path) or False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "batch",
+            "--import-only",
+            "--apply",
+            "--env-file",
+            "test.env",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+    with pytest.raises(SystemExit) as error:
+        m.main()
+    assert error.value.code == 1
+    assert calls == [snapshot]
