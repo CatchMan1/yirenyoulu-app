@@ -35,8 +35,10 @@ QUERY = """SELECT id,names,addresses,sources,operating_status,basic_category,tax
 FROM read_parquet(?) WHERE bbox.xmin BETWEEN ? AND ? AND bbox.ymin BETWEEN ? AND ?
 AND (list_contains(taxonomy.hierarchy,'hotel') OR list_contains(taxonomy.hierarchy,'restaurant')) LIMIT 2000"""
 
+PAGE_QUERY = QUERY.replace(" LIMIT 2000", " AND id > ? ORDER BY id LIMIT 2000")
 
-def collect(cfg, output, url=URL):
+
+def collect(cfg, output, url=URL, *, query_bounds=None, after=None):
     """Write one complete bounded snapshot; never overwrite an existing file."""
     import duckdb
     from overture_transport import paced_file
@@ -52,9 +54,13 @@ def collect(cfg, output, url=URL):
         c.execute("SET http_retries=1")
         time.sleep(10)
         timer.start()
-        west, south, east, north = cfg["bounds"]
+        west, south, east, north = query_bounds or cfg["bounds"]
         with paced_file(url) as (local_url, budget):
-            cur = c.execute(QUERY, [local_url, west, east, south, north])
+            cur = c.execute(
+                PAGE_QUERY if query_bounds is not None else QUERY,
+                [local_url, west, east, south, north]
+                + ([after or ""] if query_bounds is not None else []),
+            )
             columns = [d[0] for d in cur.description]
             records = [dict(zip(columns, row)) for row in cur.fetchall()]
         print(json.dumps({"requests": budget.requests, "bytes": budget.bytes}))
@@ -64,6 +70,8 @@ def collect(cfg, output, url=URL):
             "source_url": url,
             "records": records,
         }
+        if query_bounds is not None:
+            result.update(query_bounds=query_bounds, after=after)
         output.parent.mkdir(parents=True, exist_ok=True)
         temp = None
         try:

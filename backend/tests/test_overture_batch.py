@@ -134,3 +134,32 @@ def test_import_only_uses_local_files_and_propagates_failure(tmp_path, monkeypat
         m.main()
     assert error.value.code == 1
     assert calls == [snapshot]
+
+
+def test_legacy_mode_honors_new_page_limit(tmp_path, monkeypatch):
+    m = module()
+    configs = {q: {"qid": q, "names": [q], "bounds": [90, 30, 91, 31]} for q in ["Q100", "Q200"]}
+    manifest = tmp_path / "input.json"
+    manifest.write_text(json.dumps({"cities": list(configs)}))
+    (tmp_path / "cities.json").write_text(
+        json.dumps(
+            {"release": m.RELEASE, "requested": list(configs), "cities": configs, "skipped": {}}
+        )
+    )
+    url = "https://example.test/part-00014-file.parquet"
+    monkeypatch.setattr(m, "partitions", lambda client: [{"bounds": [35, 18, 104, 82], "url": url}])
+    monkeypatch.setattr(m.time, "sleep", lambda seconds: None)
+    calls = []
+    monkeypatch.setattr(m, "collect", lambda cfg, path, url: calls.append(cfg["qid"]))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["batch", "--cities", str(manifest), "--output-dir", str(tmp_path), "--max-new-pages", "1"],
+    )
+    with pytest.raises(SystemExit) as error:
+        m.main()
+    assert error.value.code == 1
+    assert calls == ["Q100"]
+    report = json.loads((tmp_path / "report.json").read_text())
+    assert report["new_page_attempts"] == 1
+    assert any("download_limit" in value for value in report["limited_tiles"])

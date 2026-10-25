@@ -1,4 +1,4 @@
-"""Serial city-centre hospitality samples from a local Wikidata city manifest."""
+"""Serial hospitality collection with optional Chinese city discovery and grid paging."""
 
 import argparse
 import json
@@ -12,6 +12,7 @@ from urllib.parse import urljoin
 
 import httpx
 from collect_overture import RELEASE, collect
+from overture_expansion import collect_region, discover_city_ids, expanded_bounds
 
 STAC = f"https://stac.overturemaps.org/{RELEASE}/places/place/collection.json"
 
@@ -20,7 +21,7 @@ def overlaps(a, b):
     return a[0] <= b[2] and a[2] >= b[0] and a[1] <= b[3] and a[3] >= b[1]
 
 
-def city_config(entity):
+def city_config(entity, radius_km=None):
     qid = entity["id"]
     if not re.fullmatch(r"Q[1-9][0-9]*", qid):
         raise ValueError("INVALID_CITY_ID")
@@ -48,7 +49,13 @@ def city_config(entity):
     if len(points) != 1:
         raise ValueError("CITY_COORDINATE_MISSING_OR_AMBIGUOUS")
     lon, lat = points.pop()
-    return {"qid": qid, "names": names, "bounds": [lon - 0.05, lat - 0.05, lon + 0.05, lat + 0.05]}
+    return {
+        "qid": qid,
+        "names": names,
+        "bounds": expanded_bounds(lon, lat, radius_km)
+        if radius_km
+        else [lon - 0.05, lat - 0.05, lon + 0.05, lat + 0.05],
+    }
 
 
 def completed(path, cfg, url):
@@ -146,7 +153,39 @@ def main():
     parser.add_argument(
         "--max-records", type=int, default=100000, help="Cumulative source import budget"
     )
+    parser.add_argument(
+        "--discover-cities",
+        action="store_true",
+        help="Discover additional Chinese city candidates, including nested cities",
+    )
+    parser.add_argument(
+        "--radius-km",
+        type=float,
+        help="Centre-to-edge km of search rectangle (1..100); enables grid paging",
+    )
+    parser.add_argument("--tile-km", type=float, default=20, help="Grid edge length in km (5..50)")
+    parser.add_argument(
+        "--max-pages-per-tile",
+        type=int,
+        default=10,
+        help="Page ceiling per tile/partition; capped pages are reported incomplete",
+    )
+    parser.add_argument(
+        "--max-new-pages",
+        type=int,
+        default=1000,
+        help="New page attempts per invocation (1..100000); rerun to continue",
+    )
     args = parser.parse_args()
+    args.new_pages = 0
+    if not 1 <= args.max_new_pages <= 100000:
+        parser.error("max-new-pages must be 1..100000")
+    if (
+        (args.radius_km is not None and not 1 <= args.radius_km <= 100)
+        or not 5 <= args.tile_km <= 50
+        or not 1 <= args.max_pages_per_tile <= 100
+    ):
+        parser.error("radius 1..100 km; tile 5..50 km; pages 1..100")
     if (
         (args.apply and not args.env_file)
         or (args.import_only and not args.apply)
@@ -181,17 +220,49 @@ def main():
         if failed:
             raise SystemExit(1)
         return
-    ids = list(dict.fromkeys(json.loads(args.cities.read_text())["cities"]))
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    if args.discover_cities:
+        with httpx.Client(
+            timeout=30,
+            follow_redirects=False,
+            headers={
+                "User-Agent": "YirenYouLu/0.2 (https://github.com/CatchMan1/yirenyoulu-app)",
+                "Accept": "application/sparql-results+json",
+            },
+        ) as client:
+            discovered = discover_city_ids(
+                client, get_json, args.output_dir / "city-discovery.json"
+            )
+    else:
+        discovered = []
+    previous = json.loads(args.cities.read_text())["cities"] if args.cities.exists() else []
+    ids = (
+        sorted(set(previous) | set(discovered))
+        if args.discover_cities
+        else list(dict.fromkeys(previous))
+    )
     if not ids or len(ids) > 5000 or any(not re.fullmatch(r"Q[1-9][0-9]*", q) for q in ids):
         parser.error("Expected 1..5000 Wikidata city IDs")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     catalog_path = args.output_dir / "cities.json"
     if catalog_path.exists():
         catalog = json.loads(catalog_path.read_text())
-        if catalog["release"] != RELEASE or catalog["requested"] != ids:
+        if (
+            catalog["release"] != RELEASE
+            or catalog["requested"] != ids
+            or catalog.get("radius_km") != args.radius_km
+            or catalog.get("tile_km", 20) != args.tile_km
+        ):
             parser.error("City list/release changed; choose a new output directory")
     else:
-        catalog = {"release": RELEASE, "requested": ids, "cities": {}, "skipped": {}}
+        catalog = {
+            "release": RELEASE,
+            "requested": ids,
+            "cities": {},
+            "skipped": {},
+            "radius_km": args.radius_km,
+            "tile_km": args.tile_km,
+        }
     with httpx.Client(
         timeout=30,
         follow_redirects=False,
@@ -205,10 +276,14 @@ def main():
                     client,
                     f"https://www.wikidata.org/w/api.php?action=wbgetentities&ids={qid}&props=labels%7Cclaims&languages=en%7Czh%7Czh-cn%7Czh-hans&format=json&maxlag=5",
                 )["entities"][qid]
-                catalog["cities"][qid] = city_config(entity)
+                catalog["cities"][qid] = city_config(entity, args.radius_km)
                 catalog["skipped"].pop(qid, None)
             except (ValueError, KeyError, httpx.HTTPError) as error:
-                catalog["skipped"][qid] = type(error).__name__
+                catalog["skipped"][qid] = (
+                    str(error)
+                    if re.fullmatch(r"[A-Z][A-Z0-9_]{0,98}", str(error))
+                    else type(error).__name__
+                )
             temporary = catalog_path.with_suffix(".tmp")
             temporary.write_text(json.dumps(catalog, ensure_ascii=False, indent=2))
             temporary.replace(catalog_path)
@@ -233,7 +308,17 @@ def main():
             return
         sources = partitions(client)
     failures = []
+    limited = []
     for qid, cfg in catalog["cities"].items():
+        if args.radius_km is not None:
+            failed_pages, limited_tiles = collect_region(
+                cfg, sources, args, catalog_path, collect, completed, apply_file
+            )
+            failures.extend(failed_pages)
+            limited.extend(limited_tiles)
+            if any("download_limit" in value for value in limited_tiles):
+                break
+            continue
         matching = [p for p in sources if overlaps(cfg["bounds"], p["bounds"])]
         if not matching:
             failures.append(qid)
@@ -244,6 +329,10 @@ def main():
                 if args.apply and not apply_file(path, catalog_path, args):
                     failures.append(qid)
                 continue
+            if args.new_pages >= args.max_new_pages:
+                limited.append(f"{qid}:download_limit")
+                break
+            args.new_pages += 1
             print(
                 json.dumps(
                     {"event": "collecting", "city": qid, "names": cfg["names"]}, ensure_ascii=False
@@ -261,15 +350,23 @@ def main():
                     flush=True,
                 )
             time.sleep(10)
+        if any("download_limit" in value for value in limited):
+            break
     report = {
         "event": "batch_finished",
         "failed": sorted(set(failures)),
         "skipped": catalog["skipped"],
-        "coverage": "city-centre samples, at most 2000 per partition",
+        "coverage": "grid-paged centre rectangle"
+        if args.radius_km
+        else "city-centre samples, at most 2000 per partition",
+        "radius_km": args.radius_km,
+        "limited_tiles": limited,
+        "new_page_attempts": args.new_pages,
+        "max_new_pages": args.max_new_pages,
     }
     (args.output_dir / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     print(json.dumps(report), flush=True)
-    if failures or catalog["skipped"]:
+    if failures or limited or catalog["skipped"]:
         raise SystemExit(1)
 
 
