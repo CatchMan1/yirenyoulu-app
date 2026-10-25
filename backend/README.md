@@ -10,11 +10,10 @@ Python3.11、FastAPI、SQLAlchemy同步事务、PostgreSQL16、Alembic。业务�
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r backend/requirements-dev.txt
 .venv/bin/alembic -c backend/alembic.ini upgrade head
-PYTHONPATH=backend .venv/bin/python -m app.seed
 PYTHONPATH=backend .venv/bin/python -m uvicorn app.main:create_application --factory --host 127.0.0.1 --port 8000 --no-access-log --limit-concurrency 64
 ```
 
-必须提供匹配APP_ENV的独立DATABASE_URL及至少32字符的随机JWT_SECRET。开发数据库使用yirenyoulu_dev，测试yirenyoulu_test，生产yirenyoulu_prod。fixture命令仅允许开发/测试，包含9个明确标记的虚拟地点，不含用户或行为。
+必须提供匹配APP_ENV的独立DATABASE_URL及至少32字符的随机JWT_SECRET。开发数据库使用yirenyoulu_dev，测试yirenyoulu_test，生产yirenyoulu_prod。开发库只存实际导入的地点。合成样本仅由关键回归测试在独立测试环境中创建，运行代码不提供造数命令。
 
 另一个同环境进程运行持久规划worker：
 
@@ -70,7 +69,7 @@ PYTHONPATH=backend .venv/bin/python -m pytest backend/tests -q
 PYTHONPATH=backend .venv/bin/python scripts/generate_data_dictionary.py --check
 ```
 
-PostgreSQL迁移往返必须从新的空测试库开始；HTTP与并发测试另设ITERATION_HTTP_DATABASE_URL，必须指向专用yirenyoulu_test，测试会清空其业务表。不要在有业务数据的库运行。备份演练另需PG_DUMP_PATH、PG_RESTORE_PATH及测试库；详见数据库运维说明。SQLite与跳过的集成项不作为PostgreSQL证据。
+保留4组关键回归：账户与权限、行程事务、数据导入/任务/采集续跑、迁移往返。测试夹具和契约校验集中在tests目录，不进入运行镜像。PostgreSQL迁移往返必须从新的空测试库开始；业务回归另设ITERATION_HTTP_DATABASE_URL，必须指向专用yirenyoulu_test，测试会清空其业务表。不要在开发或生产库运行。SQLite与跳过的集成项不作为PostgreSQL证据。
 
 ## 容器与部署
 

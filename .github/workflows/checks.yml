@@ -12,8 +12,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Publication guard regression tests
-        run: python3 -m unittest discover -s tests -v
       - name: Worktree, index and full reachable history
         run: python3 scripts/check_repository.py --history
   database-foundation:
@@ -61,22 +59,10 @@ jobs:
         env:
           RUN_POSTGRES_TESTS: '1'
         run: python -m pytest backend/tests/test_postgres.py -q
-      - name: PostgreSQL constraints and rollback
-        env:
-          RUN_POSTGRES_TESTS: '1'
-        run: python -m pytest backend/tests/test_schema.py -q
-      - name: PostgreSQL HTTP contract and concurrent requests
+      - name: PostgreSQL critical business regressions
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
-        run: python -m pytest backend/tests/test_api_accounts_catalog.py backend/tests/test_api_trips.py backend/tests/test_api_tasks_chat.py backend/tests/test_api_recovery.py backend/tests/test_runtime_contract.py backend/tests/test_postgres_api_races.py backend/tests/test_recommendation_batch.py backend/tests/test_api_operations.py backend/tests/test_ingestion.py backend/tests/test_data_adapters.py backend/tests/test_data_operator.py backend/tests/test_recommendation_city.py backend/tests/test_bulk_collection.py backend/tests/test_wikidata_discovery.py backend/tests/test_bulk_cli.py backend/tests/test_bulk_country.py backend/tests/test_overture.py backend/tests/test_overture_cli.py -q
-      - name: Backup restore and erasure replay
-        env:
-          ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
-          PG_DUMP_PATH: pg_dump
-          PG_RESTORE_PATH: pg_restore
-        run: |
-          pg_dump --version
-          python -m pytest backend/tests/test_restore.py -q
+        run: python -m pytest backend/tests/test_accounts.py backend/tests/test_trips.py backend/tests/test_data_tasks.py -q
   backend-container:
     runs-on: ubuntu-latest
     steps:

@@ -178,20 +178,14 @@ docker compose --env-file .env --profile backend build api
 
 第一条启动 PostgreSQL；首次会下载数据库镜像并初始化数据目录。第二条安装后端依赖并复制代码，生成 API 与 planner 共用的镜像，尚未启动长期运行的后端。
 
-### 4. 创建表，再导入可选测试数据
+### 4. 创建或升级数据库表
 
 ```sh
 docker compose --env-file .env --profile backend run --rm api \
   python -m alembic -c backend/alembic.ini upgrade head
-
-# 可选：导入 9 个虚拟地点，景点、酒店、餐厅各 3 个。
-docker compose --env-file .env --profile backend run --rm api \
-  python -m app.seed
 ```
 
-第一条按已提交的 Alembic 迁移创建或更新表结构；第二条补充明确标记的虚拟开发数据，不创建默认账号。run --rm 会临时创建一个后端容器执行命令，结束后删除该临时容器，数据库数据卷保留。
-
-seed 允许重复执行，已有测试地点会跳过；它不是已有数据的通用更新工具，不会因为脚本里的名称改了就覆盖原记录。
+该命令按 Alembic 迁移更新表结构。开发库中的地点通过真实来源导入，初始化不创建虚拟地点。`run --rm` 结束后删除执行迁移的临时容器，数据库数据卷保留。
 
 ### 5. 启动并检查
 

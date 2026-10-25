@@ -2,3 +2,8 @@
 jsonschema==4.25.1
 ruff==0.13.2
 mypy==1.18.2
+
+iniconfig==2.3.1
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==8.4.2
