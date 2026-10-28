@@ -277,6 +277,17 @@ class NavigationResultResponse(Output):
     request_id: UUID
 
 
+class FavoriteStatus(Output):
+    place_id: UUID
+    is_favorited: bool
+
+
+class FavoriteStatusResponse(Output):
+    data: FavoriteStatus
+    meta: None
+    request_id: UUID
+
+
 class TripSummary(Output):
     id: UUID
     title: Annotated[str, Field(min_length=1, max_length=200)]
@@ -654,6 +665,7 @@ RESPONSE_MODELS = {
     "getPlace": PlaceDetailResponse,
     "getNavigation": NavigationResultResponse,
     "listFavorites": PlacePageResponse,
+    "getFavoriteStatus": FavoriteStatusResponse,
     "listTrips": TripSummaryPageResponse,
     "createTrip": TripResponse,
     "getTrip": TripResponse,
@@ -698,6 +710,7 @@ ERROR_CODES = {
     "getPlace": [404, 422, 429, 500, 400, 413, 415, 503],
     "getNavigation": [404, 422, 429, 500, 400, 413, 415, 503],
     "listFavorites": [401, 403, 422, 429, 500, 400, 413, 415, 503],
+    "getFavoriteStatus": [401, 403, 422, 429, 500, 400, 413, 415, 503],
     "addFavorite": [401, 403, 404, 422, 429, 500, 400, 413, 415, 503],
     "removeFavorite": [401, 403, 422, 429, 500, 400, 413, 415, 503],
     "listTrips": [401, 403, 422, 429, 500, 400, 413, 415, 503],

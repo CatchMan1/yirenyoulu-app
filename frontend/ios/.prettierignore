@@ -1,0 +1,6 @@
+node_modules
+dist*
+.expo
+src/api/generated.ts
+src/api/contract.json
+package-lock.json

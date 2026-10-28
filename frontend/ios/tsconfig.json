@@ -1,0 +1,5 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": { "strict": true, "noUncheckedIndexedAccess": true, "types": ["node"] },
+  "exclude": ["node_modules", "dist", "dist-ios"]
+}

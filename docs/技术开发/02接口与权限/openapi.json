@@ -1566,6 +1566,89 @@
       }
     },
     "/favorites/{place_id}": {
+      "get": {
+        "operationId": "getFavoriteStatus",
+        "summary": "读取本人单地点收藏状态",
+        "tags": [
+          "收藏"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "place_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；含响应体时使用统一包装。",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoriteStatusResponse"
+                },
+                "examples": {
+                  "not-favorited": {
+                    "value": {
+                      "data": {
+                        "place_id": "00000000-0000-4000-8000-000000000002",
+                        "is_favorited": false
+                      },
+                      "meta": null,
+                      "request_id": "00000000-0000-4000-8000-000000000099"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "description": "仅查询当前用户的收藏关系，不检查地点是否存在或可展示；合法UUID没有本人收藏时返回false，已有失效或来源撤回的本人收藏仍返回true。不暴露其他用户收藏，不产生行为事件。"
+      },
       "put": {
         "operationId": "addFavorite",
         "summary": "幂等收藏有效地点",
@@ -6886,6 +6969,44 @@
         },
         "required": [],
         "additionalProperties": false
+      },
+      "FavoriteStatus": {
+        "type": "object",
+        "properties": {
+          "place_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_favorited": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "place_id",
+          "is_favorited"
+        ],
+        "additionalProperties": true
+      },
+      "FavoriteStatusResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/FavoriteStatus"
+          },
+          "meta": {
+            "type": "null"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "data",
+          "meta",
+          "request_id"
+        ],
+        "additionalProperties": true
       }
     },
     "responses": {

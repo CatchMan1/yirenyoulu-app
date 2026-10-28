@@ -36,6 +36,7 @@
 | GET /places/{place_id} | 读取有效地点详情 | — | 200 PlaceDetailResponse | 公开/凭据端点 |
 | GET /places/{place_id}/navigation | 获取受限供应商导航链接 | — | 200 NavigationResultResponse | 公开/凭据端点 |
 | GET /favorites | 浏览本人收藏 | — | 200 PlacePageResponse | 本人 |
+| GET /favorites/{place_id} | 读取本人单地点收藏状态 | — | 200 FavoriteStatusResponse | 本人 |
 | PUT /favorites/{place_id} | 幂等收藏有效地点 | — | 204 无body | 本人 |
 | DELETE /favorites/{place_id} | 幂等取消收藏 | — | 204 无body | 本人 |
 | GET /trips | 浏览本人行程 | — | 200 TripSummaryPageResponse | 本人 |
@@ -68,7 +69,7 @@
 
 行程PATCH及地点POST/PATCH在JSON带version；行程及地点DELETE用query version，不带JSON body。账户DELETE的密码仅在JSON body传递并需网关验证。地点新增201返回完整Trip而不是单个item，客户端以返回version和items整体更新。
 
-公共地点只显示active；失效地点保留在本人收藏和行程快照中并警示，不能新加入行程。收藏幂等返回204；取消不存在的收藏也204。普通用户无目录写接口。
+公共地点只显示active；失效地点保留在本人收藏和行程快照中并警示，不能新加入行程。收藏幂等返回204；取消不存在的收藏也204。单地点收藏状态仅按本人收藏关系返回`{place_id,is_favorited}`：合法UUID没有本人收藏时为false，不区分地点不存在、不可展示或被其他用户收藏；已有失效本人收藏仍为true。该查询不产生行为事件，非法UUID返回422，无效会话返回401。普通用户无目录写接口。
 
 地点搜索与推荐统一explicit_tags（all匹配），不使用tag别名。最高价格必须同时带price_unit，未知价格不满足硬上限；单位不能跨类混比。首版地点估算为null，行程估算单独记录；不从模型伪造地点事实。
 

@@ -10,6 +10,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -71,6 +72,16 @@ def create_app(settings: Settings, sessions=None):
     app.add_middleware(
         ProtocolMiddleware, sessions=sessions, secret=settings.jwt_secret.get_secret_value()
     )
+
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+            allow_headers=["Accept", "Authorization", "Content-Type", "Idempotency-Key"],
+            expose_headers=["X-Request-ID", "Retry-After"],
+        )
 
     @app.exception_handler(ApiError)
     async def business_error(request, error):
@@ -348,6 +359,22 @@ def create_app(settings: Settings, sessions=None):
                 lambda row: place_data(db, row),
             )
         return result(request, data, meta)
+
+    @app.get(
+        prefix + "/favorites/{place_id}",
+        response_model=RESPONSE_MODELS["getFavoriteStatus"],
+        operation_id="getFavoriteStatus",
+    )
+    def favorite_status(request: Request, place_id: dto.UUIDText):
+        actor = principal(request)
+        with sessions() as db:
+            checked_session(db, actor)
+            existing = db.scalar(
+                select(Favorite.id).where(
+                    Favorite.user_id == actor.user_id, Favorite.place_id == place_id
+                )
+            )
+        return result(request, {"place_id": place_id, "is_favorited": existing is not None})
 
     @app.put(prefix + "/favorites/{place_id}", status_code=204, operation_id="addFavorite")
     def add_favorite(request: Request, place_id: dto.UUIDText):

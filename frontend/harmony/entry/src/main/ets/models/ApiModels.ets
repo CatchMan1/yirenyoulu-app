@@ -531,6 +531,17 @@ export interface PreferencesInput {
   pace?: "relaxed" | "normal" | "fast";
 }
 
+export interface FavoriteStatus {
+  place_id: string;
+  is_favorited: boolean;
+}
+
+export interface FavoriteStatusResponse {
+  data: FavoriteStatus;
+  meta: null;
+  request_id: string;
+}
+
 export interface Envelope<T> {
   data: T | null;
   meta: PageMeta | CursorMeta | null;

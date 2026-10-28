@@ -341,6 +341,23 @@
         },
         "request_id": "00000000-0000-4000-8000-000000000099"
       }
+    },
+    {
+      "name": "not-favorited",
+      "method": "get",
+      "path": "/favorites/{place_id}",
+      "path_values": {
+        "place_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "status": 200,
+      "response": {
+        "data": {
+          "place_id": "00000000-0000-4000-8000-000000000002",
+          "is_favorited": false
+        },
+        "meta": null,
+        "request_id": "00000000-0000-4000-8000-000000000099"
+      }
     }
   ]
 }

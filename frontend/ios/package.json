@@ -1,0 +1,58 @@
+{
+  "name": "yirenyoulu-ios",
+  "version": "0.3.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.17",
+    "@react-navigation/bottom-tabs": "7.21.0",
+    "@react-navigation/native": "7.5.1",
+    "@react-navigation/native-stack": "7.21.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "expo": "~57.0.31",
+    "expo-crypto": "~57.0.4",
+    "expo-secure-store": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "@types/react": "~19.2.2",
+    "@types/react-test-renderer": "19.3.0",
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "openapi-typescript": "7.13.0",
+    "playwright": "1.64.1",
+    "prettier": "3.9.10",
+    "react-test-renderer": "19.2.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.0.5"
+  },
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "web": "expo start --web --localhost",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate": "node scripts/generate-contract.mjs",
+    "contract:check": "node scripts/generate-contract.mjs --check",
+    "format:check": "prettier --check .",
+    "export:web": "expo export --platform web",
+    "export:ios": "expo export --platform ios --output-dir dist-ios",
+    "preview": "node scripts/preview.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24.3 <25"
+  },
+  "packageManager": "npm@11.19.0"
+}
