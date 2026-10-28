@@ -51,3 +51,6 @@ build/
 /AGENTS.md
 
 .mypy_cache/
+
+# Local source manifests, imported datasets and operator reports
+.local-data/

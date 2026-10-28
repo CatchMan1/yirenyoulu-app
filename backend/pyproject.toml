@@ -10,7 +10,7 @@ ignore = ["S101"]
 "**/tests/*.py" = ["S105", "S106", "S107", "S311"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "test_api_accounts_catalog", "wire_contract"]
+known-first-party = ["app", "support", "wire_contract"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

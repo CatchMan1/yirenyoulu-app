@@ -11,10 +11,12 @@ from .models import (
     City,
     DataSource,
     Place,
+    PlaceExternalId,
     PlaceImage,
     PlaceTag,
     Tag,
 )
+from .source_access import allowed, source_clause
 
 
 def timestamp(value):
@@ -33,6 +35,38 @@ def city_data(row):
 
 def place_data(db, row, detail=False):
     source = db.get(DataSource, row.source_id)
+    if not allowed(db, row.source_id):
+        data = {
+            "id": row.id,
+            "kind": row.kind,
+            "name": "地点资料暂不可用",
+            "city": city_data(db.get(City, row.city_id)),
+            "category": None,
+            "tags": [],
+            "address": None,
+            "coordinates": None,
+            "price": None,
+            "estimate": None,
+            "status": "inactive",
+            "provenance": {"source_name": source.name, "source_url": None, "checked_at": None},
+            "is_test": row.is_test,
+        }
+        if detail:
+            data.update(
+                description=None,
+                opening_hours=None,
+                rating=None,
+                images=[],
+                hotel_stars=None,
+                cuisine=None,
+            )
+        return data
+    external_url = db.scalar(
+        select(PlaceExternalId.source_url)
+        .where(PlaceExternalId.place_id == row.id, PlaceExternalId.source_id == row.source_id)
+        .order_by(PlaceExternalId.id)
+        .limit(1)
+    )
     data = {
         "id": row.id,
         "kind": row.kind,
@@ -52,7 +86,7 @@ def place_data(db, row, detail=False):
         "status": row.status,
         "provenance": {
             "source_name": source.name,
-            "source_url": source.source_url,
+            "source_url": external_url or source.source_url,
             "checked_at": timestamp(row.checked_at),
         },
         "is_test": row.is_test,
@@ -69,6 +103,7 @@ def place_data(db, row, detail=False):
             "currency": row.currency,
             "unit": row.price_unit,
             "observed_at": timestamp(row.price_observed_at),
+            "conditions": row.price_conditions,
         }
     if detail:
         data.update(
@@ -84,6 +119,7 @@ def place_data(db, row, detail=False):
                     .where(PlaceImage.place_id == row.id, PlaceImage.display_allowed.is_(True))
                     .order_by(PlaceImage.id)
                 )
+                if allowed(db, i.source_id)
             ],
             hotel_stars=row.hotel_stars,
             cuisine=row.cuisine,
@@ -94,7 +130,7 @@ def place_data(db, row, detail=False):
 def filtered_places(query):
     if query.price_max_minor is not None and query.price_unit is None:
         fail(422, "INVALID_INPUT", "最高价格必须有计价单位")
-    stmt = select(Place).where(Place.status == "active")
+    stmt = select(Place).where(Place.status == "active", source_clause())
     if query.q:
         # SQL parameters prevent injection; escape LIKE wildcards for literal search.
         term = query.q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -123,7 +159,7 @@ def paginate(db, stmt, query, serialize):
 
 def valid_place(db, place_id):
     row = db.get(Place, place_id)
-    if not row or row.status != "active":
+    if not row or row.status != "active" or not allowed(db, row.source_id):
         fail(404, "PLACE_NOT_FOUND")
     return row
 
@@ -140,3 +176,12 @@ def emit_behavior(db, user_id, place_id, event_type, production=False):
             occurred_at=utcnow(),
         )
     )
+
+
+def lock_place_sources(db, place_ids):
+    return db.scalars(
+        select(DataSource)
+        .where(DataSource.id.in_(select(Place.source_id).where(Place.id.in_(place_ids))))
+        .order_by(DataSource.id)
+        .with_for_update()
+    ).all()

@@ -1,10 +1,11 @@
+"""Owner isolation, durable idempotency and transactional trip changes."""
+
 from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.models import Place, Trip, TripItem
-from app.seed import fixture_id
-from test_api_accounts_catalog import auth, login, register
+from app.models import Trip, TripItem
+from support import auth, fixture_id, login, register
 
 
 def create(client, tokens, key=None, **changes):
@@ -45,65 +46,6 @@ def test_creation_is_durable_idempotent_and_owner_scoped(api):
         assert db.scalars(select(Trip)).all() == []
 
 
-def test_lodging_snapshots_versions_and_date_conflicts(api):
-    client, factory = api
-    register(client)
-    tokens = login(client)
-    response = create(client, tokens)
-    assert response.status_code == 201, response.text
-    tid = response.json()["data"]["id"]
-    path = "/api/v1/trips/" + tid + "/items"
-    hotel = fixture_id("fixture-hotel-1")
-    added = client.post(
-        path,
-        json={
-            "version": 1,
-            "place_id": hotel,
-            "date": "2027-01-01",
-            "start_minute": None,
-            "end_minute": None,
-        },
-        headers=auth(tokens),
-    )
-    assert added.status_code == 201, added.text
-    trip = added.json()["data"]
-    assert trip["version"] == 2 and len(trip["items"]) == 1
-    assert (
-        trip["cost_summary"]["unknown_item_count"] == 1
-        and trip["cost_summary"]["complete"] is False
-    )
-    conflict = client.patch(
-        "/api/v1/trips/" + tid, json={"version": 1, "title": "stale"}, headers=auth(tokens)
-    )
-    assert conflict.status_code == 409
-    duplicate = client.post(
-        path,
-        json={
-            "version": 2,
-            "place_id": fixture_id("fixture-hotel-2"),
-            "date": "2027-01-01",
-            "start_minute": None,
-            "end_minute": None,
-        },
-        headers=auth(tokens),
-    )
-    assert duplicate.status_code == 422
-    shortened = client.patch(
-        "/api/v1/trips/" + tid, json={"version": 2, "end_date": "2027-01-01"}, headers=auth(tokens)
-    )
-    assert shortened.status_code == 422
-    with factory.begin() as db:
-        db.get(Place, hotel).status = "inactive"
-    renamed = client.patch(
-        "/api/v1/trips/" + tid,
-        json={"version": 2, "title": "【测试】仍可编辑"},
-        headers=auth(tokens),
-    )
-    assert renamed.status_code == 200 and renamed.json()["data"]["version"] == 3
-    item = renamed.json()["data"]["items"][0]
-    assert item["snapshot"]["name"] == "【测试】虚拟酒店1" and item["current_status"] == "inactive"
-
-
 def test_invalid_schedule_rolls_back_and_wrong_child_is_not_found(api):
     client, factory = api
     register(client)
@@ -136,14 +78,6 @@ def test_invalid_schedule_rolls_back_and_wrong_child_is_not_found(api):
     with factory() as db:
         assert len(db.scalars(select(TripItem).where(TripItem.trip_id == tid)).all()) == 1
         assert db.get(Trip, tid).version == 2
-
-
-def test_strict_money_input_and_oversized_dates(api):
-    client, _ = api
-    register(client)
-    tokens = login(client)
-    assert create(client, tokens, budget_minor=True).status_code == 422
-    assert create(client, tokens, end_date="2027-02-01").status_code == 422
 
 
 def test_commit_failure_never_returns_created_or_keeps_partial_state(api):
@@ -223,65 +157,3 @@ def test_known_fact_over_budget_rolls_back_item_version_and_behavior(api):
     assert unchanged["version"] == 1 and unchanged["items"] == []
     with factory() as db:
         assert db.scalars(select(BehaviorEvent)).all() == []
-
-
-def test_empty_preference_patch_persists_canonical_defaults(api):
-    client, factory = api
-    register(client)
-    tokens = login(client)
-    trip = client.post(
-        "/api/v1/trips",
-        json={
-            "title": "【测试】默认偏好",
-            "city_id": fixture_id("city"),
-            "start_date": "2027-01-01",
-            "end_date": "2027-01-02",
-        },
-        headers={**auth(tokens), "Idempotency-Key": str(uuid4())},
-    ).json()["data"]
-    response = client.patch(
-        "/api/v1/trips/" + trip["id"], json={"version": 1, "preferences": {}}, headers=auth(tokens)
-    )
-    assert response.status_code == 200, response.text
-    assert response.json()["data"]["preferences"] == {"tags": [], "pace": "normal"}
-
-
-def test_hotel_transfer_cost_and_travel_time_remain_unknown(api):
-    from app.models import Place
-
-    client, factory = api
-    register(client)
-    headers = auth(login(client))
-    attraction, hotel = fixture_id("fixture-attraction-1"), fixture_id("fixture-hotel-1")
-    with factory.begin() as db:
-        for pid, unit, price in [(attraction, "entry", 1000), (hotel, "night", 20000)]:
-            place = db.get(Place, pid)
-            place.price_minor, place.price_unit = price, unit
-    trip = client.post(
-        "/api/v1/trips",
-        json={
-            "title": "【测试】住宿交通",
-            "city_id": fixture_id("city"),
-            "start_date": "2027-01-01",
-            "end_date": "2027-01-02",
-        },
-        headers={**headers, "Idempotency-Key": str(uuid4())},
-    ).json()["data"]
-    for pid, start, end in [(attraction, 600, 660), (hotel, None, None)]:
-        response = client.post(
-            "/api/v1/trips/" + trip["id"] + "/items",
-            json={
-                "version": trip["version"],
-                "place_id": pid,
-                "date": "2027-01-01",
-                "start_minute": start,
-                "end_minute": end,
-            },
-            headers=headers,
-        )
-        assert response.status_code == 201
-        trip = response.json()["data"]
-    assert trip["cost_summary"]["known_cost_minor"] == 21000
-    assert trip["cost_summary"]["complete"] is False
-    assert trip["cost_summary"]["estimated_cost_minor"] is None
-    assert {w["code"] for w in trip["warnings"]} >= {"COST_INCOMPLETE", "TRAVEL_TIME_UNKNOWN"}

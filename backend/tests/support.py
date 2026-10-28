@@ -1,10 +1,9 @@
-"""Explicit fixture import; no credentials, users or synthetic behavior events."""
+"""Isolated regression fixtures and HTTP helpers; never used by runtime code."""
 
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.orm import Session
 
-from app.db import make_engine
 from app.models import City, DataSource, Place, PlaceExternalId
 from app.settings import Settings
 
@@ -14,8 +13,8 @@ def fixture_id(name: str) -> str:
 
 
 def seed_fixtures(db: Session, settings: Settings) -> None:
-    if settings.app_env not in {"development", "test"}:
-        raise ValueError("fixture import is forbidden in production")
+    if settings.app_env != "test":
+        raise ValueError("fixtures require the isolated test environment")
     source_id, city_id = fixture_id("source"), fixture_id("city")
     with db.begin():
         if db.get(DataSource, source_id) is None:
@@ -54,16 +53,22 @@ def seed_fixtures(db: Session, settings: Settings) -> None:
                 )
 
 
-if __name__ == "__main__":
-    settings = Settings()
-    if settings.app_env == "production":
-        raise SystemExit("fixture import is forbidden in production")
-    engine = make_engine(settings)
-    try:
-        with Session(engine) as db:
-            seed_fixtures(db, settings)
-        print(
-            "Fixture import complete: synthetic places only; no user accounts or behavior created."
-        )
-    finally:
-        engine.dispose()
+def register(client, name="alice"):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"username": name, "email": name + "@example.com", "password": "TestOnly!Password12"},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["data"]
+
+
+def login(client, name="alice"):
+    response = client.post(
+        "/api/v1/auth/login", json={"identifier": name, "password": "TestOnly!Password12"}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["data"]["tokens"]
+
+
+def auth(tokens):
+    return {"Authorization": "Bearer " + tokens["access_token"]}

@@ -9,3 +9,6 @@
 **/__pycache__/
 **/*.pyc
 **/.env*
+
+!backend/examples
+!backend/examples/**

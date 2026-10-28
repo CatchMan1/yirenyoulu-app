@@ -4,7 +4,7 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Query, Request
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 
 from . import schemas as dto
 from .auth import checked_session, digest, principal
@@ -12,13 +12,18 @@ from .catalog import filtered_places, place_data, valid_place
 from .http import aware, fail, result, utcnow
 from .models import (
     BehaviorEvent,
+    DataSource,
     IdempotencyRecord,
+    Place,
+    PlaceTag,
     RecommendationRun,
     RecommendationSimilarity,
+    SourcePolicy,
     User,
 )
 from .recommendation_batch import vectors_for
 from .responses import RESPONSE_MODELS
+from .source_access import source_clause
 from .trips import canonical_hash
 
 
@@ -30,13 +35,14 @@ def recommend(db, actor, query):
         price_max_minor=query.price_max_minor,
         price_unit=query.price_unit,
     )
-    candidates = db.scalars(filtered_places(params).limit(1000)).all()
-    scores: dict[str, float] = {}
+    eligible = filtered_places(params).where(source_clause("recommend")).order_by(None)
+    candidates = []
     reason = "fallback_catalog"
     model = (
         db.scalar(
             select(RecommendationRun)
             .where(
+                RecommendationRun.scope_key == "city:" + query.city_id,
                 RecommendationRun.expires_at > utcnow(),
                 RecommendationRun.user_count >= 20,
                 RecommendationRun.interaction_count >= 100,
@@ -44,50 +50,66 @@ def recommend(db, actor, query):
             .order_by(RecommendationRun.created_at.desc(), RecommendationRun.id.desc())
             .limit(1)
         )
-        if actor
+        if actor and query.city_id is not None
         else None
     )
     if model:
         try:
-            vectors, _ = vectors_for(db, actor.user_id, max_events=10000)
+            vectors, _ = vectors_for(db, actor.user_id, max_events=10000, city_id=query.city_id)
         except ValueError:
             vectors = {}
         interests = {pid: users.get(actor.user_id, 0) for pid, users in vectors.items()}
         if len(interests) >= 3:
-            candidate_ids = {place.id for place in candidates}
-            rows = db.scalars(
-                select(RecommendationSimilarity).where(
+            # Aggregate similarity before applying the bounded result limit, with all hard
+            # catalog filters still in SQL. Alphabetical catalog position cannot hide a match.
+            ranked = (
+                select(
+                    RecommendationSimilarity.target_place_id.label("place_id"),
+                    func.sum(
+                        RecommendationSimilarity.score
+                        * case(interests, value=RecommendationSimilarity.source_place_id, else_=0.0)
+                    ).label("score"),
+                )
+                .where(
                     RecommendationSimilarity.run_id == model.id,
                     RecommendationSimilarity.source_place_id.in_(interests),
                 )
+                .group_by(RecommendationSimilarity.target_place_id)
+                .subquery()
+            )
+            candidates = db.scalars(
+                eligible.join(ranked, ranked.c.place_id == Place.id)
+                .order_by(ranked.c.score.desc(), Place.name, Place.id)
+                .limit(query.limit)
             ).all()
-            for pair in rows:
-                if pair.target_place_id in candidate_ids:
-                    scores[pair.target_place_id] = (
-                        scores.get(pair.target_place_id, 0)
-                        + interests[pair.source_place_id] * pair.score
-                    )
-            if scores:
+            if candidates:
                 reason = "collaborative"
-    preferred = query.preferred_tags
-    if not preferred and actor:
-        user = db.get(User, actor.user_id)
-        preferred = user.preferences.get("tags", [])
-    if not scores and preferred:
-        from .models import PlaceTag
-
-        for candidate in candidates:
-            score = db.scalars(
-                select(PlaceTag.tag_id).where(
-                    PlaceTag.place_id == candidate.id, PlaceTag.tag_id.in_(preferred)
-                )
-            ).all()
-            if score:
-                scores[candidate.id] = len(score)
-        reason = "fallback_preferences"
-    candidates.sort(key=lambda p: (-scores.get(p.id, 0), p.name, p.id))
+    if not candidates:
+        preferred = query.preferred_tags
+        if not preferred and actor:
+            user = db.get(User, actor.user_id)
+            preferred = user.preferences.get("tags", [])
+        ordering = []
+        if preferred:
+            preference_score = (
+                select(func.count())
+                .select_from(PlaceTag)
+                .where(PlaceTag.place_id == Place.id, PlaceTag.tag_id.in_(preferred))
+                .correlate(Place)
+                .scalar_subquery()
+            )
+            ordering.append(preference_score.desc())
+            reason = "fallback_preferences"
+        candidates = db.scalars(
+            eligible.order_by(*ordering, Place.name, Place.id).limit(query.limit)
+        ).all()
+    # Keep these references alive for the serializer's identity-map lookups, avoiding
+    # a separate source/policy query for every recommended place.
+    source_ids = {place.source_id for place in candidates}
+    _sources = db.scalars(select(DataSource).where(DataSource.id.in_(source_ids))).all()
+    _policies = db.scalars(select(SourcePolicy).where(SourcePolicy.source_id.in_(source_ids))).all()
     return {
-        "items": [place_data(db, p) for p in candidates[: query.limit]],
+        "items": [place_data(db, p) for p in candidates],
         "reason": reason,
         "algorithm_version": "item-cosine-v1"
         if reason == "collaborative"
