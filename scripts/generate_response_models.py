@@ -74,11 +74,7 @@ def generate():
         args = [key + "=" + repr(v) for key, v in constraints.items()]
         if extra:
             args.append("json_schema_extra=" + repr(extra))
-        return (
-            "Annotated[" + value + ", Field(" + ", ".join(args) + ")]"
-            if args
-            else value
-        )
+        return "Annotated[" + value + ", Field(" + ", ".join(args) + ")]" if args else value
 
     def emit(name):
         if name in emitted:
@@ -107,9 +103,7 @@ def generate():
                 continue
             for code, response in operation["responses"].items():
                 if code.startswith("2") and "content" in response:
-                    name = response["content"]["application/json"]["schema"][
-                        "$ref"
-                    ].split("/")[-1]
+                    name = response["content"]["application/json"]["schema"]["$ref"].split("/")[-1]
                     emit(name)
                     operations[operation["operationId"]] = name
     emit("ErrorResponse")

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from . import ingestion as service
 from .data_adapters import claims, osm_record, qid, wikidata_record
+from .data_quality import quality_report
 from .db import make_engine
 from .http import utcnow
 from .models import City, ImportRow, Place
@@ -186,19 +188,23 @@ def execute(args, sessions):
             },
         )
         return {"mapped": len(records), "rejected": rejected}
+    if action == "quality":
+        return quality_report(sessions, city_id=args.city, stale_days=args.stale_days)
     if action == "coverage":
         with sessions() as db:
             rows = db.execute(
-                select(Place.city_id, Place.kind, func.count())
+                select(Place.city_id, City.name, Place.kind, func.count())
+                .join(City, City.id == Place.city_id)
                 .where(Place.status == "active", source_clause())
-                .group_by(Place.city_id, Place.kind)
+                .group_by(Place.city_id, City.name, Place.kind)
+                .order_by(City.name, Place.city_id, Place.kind)
             ).all()
             data = {}
-            for city, kind, count in rows:
+            for city, name, kind, count in rows:
                 if city not in data:
                     data[city] = {
                         "city_id": city,
-                        "city_name": db.get(City, city).name,
+                        "city_name": name,
                         "kinds": {},
                     }
                 data[city]["kinds"][kind] = count
@@ -258,6 +264,11 @@ def parser():
     item.add_argument("--output", type=Path, required=True)
     commands.add_parser("expire")
     commands.add_parser("coverage")
+    item = commands.add_parser("quality", help="read-only city inventory and usable-fact quality")
+    item.add_argument("--city", type=lambda value: str(UUID(value)), default=None)
+    item.add_argument(
+        "--stale-days", type=int, choices=range(1, 3651), metavar="1..3650", default=30
+    )
     return root
 
 

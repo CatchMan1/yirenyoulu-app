@@ -7,11 +7,12 @@ import re
 import subprocess
 import sys
 import time
+from functools import partial
 from pathlib import Path
 from urllib.parse import urljoin
 
 import httpx
-from collect_overture import RELEASE, collect
+from collect_overture import RELEASE, collect, validate_release
 from overture_expansion import collect_region, discover_city_ids, expanded_bounds
 
 STAC = f"https://stac.overturemaps.org/{RELEASE}/places/place/collection.json"
@@ -58,11 +59,11 @@ def city_config(entity, radius_km=None):
     }
 
 
-def completed(path, cfg, url):
+def completed(path, cfg, url, *, release=RELEASE):
     try:
         s = json.loads(path.read_text())
         return (
-            s["release"] == RELEASE
+            s["release"] == release
             and s["city"] == cfg
             and s["source_url"] == url
             and isinstance(s["records"], list)
@@ -90,18 +91,20 @@ def get_json(client, url):
                 raise
 
 
-def partitions(client):
+def partitions(client, release=RELEASE):
+    validate_release(release)
+    stac = f"https://stac.overturemaps.org/{release}/places/place/collection.json"
     result = []
-    for link in get_json(client, STAC)["links"]:
+    for link in get_json(client, stac)["links"]:
         if link["rel"] != "item":
             continue
-        item_url = urljoin(STAC, link["href"])
-        if not item_url.startswith(f"https://stac.overturemaps.org/{RELEASE}/"):
+        item_url = urljoin(stac, link["href"])
+        if not item_url.startswith(f"https://stac.overturemaps.org/{release}/"):
             raise ValueError("UNEXPECTED_CATALOG_URL")
         item = get_json(client, item_url)
         for asset in item["assets"].values():
             url = asset.get("href", "")
-            prefix = f"https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/{RELEASE}/theme=places/type=place/"
+            prefix = f"https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/{release}/theme=places/type=place/"
             if url.startswith(prefix) and url.endswith(".parquet"):
                 result.append({"bounds": item["bbox"], "url": url})
                 break
@@ -121,9 +124,11 @@ def apply_file(path, catalog, args):
         "--env-file",
         str(args.env_file),
         "--apply",
-        "--max-records",
-        str(args.max_records),
     ]
+    if args.max_records is not None:
+        command.extend(["--max-records", str(args.max_records)])
+    if getattr(args, "refresh_existing", False):
+        command.append("--refresh-existing")
     result = subprocess.run(command, check=False)  # noqa: S603 -- fixed Python/script; argv, no shell
     print(
         json.dumps(
@@ -136,6 +141,16 @@ def apply_file(path, catalog, args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--release",
+        type=validate_release,
+        help="Explicit reviewed YYYY-MM-DD.N release; defaults to the pinned version",
+    )
+    parser.add_argument(
+        "--refresh-existing",
+        action="store_true",
+        help="Explicitly update existing same-source records; requires apply",
+    )
     parser.add_argument("--cities", type=Path, default=Path(".local-data/wikidata-country.json"))
     parser.add_argument("--output-dir", type=Path, default=Path(".local-data/overture/country"))
     parser.add_argument(
@@ -151,7 +166,10 @@ def main():
         "--import-only", action="store_true", help="Import existing local snapshots without network"
     )
     parser.add_argument(
-        "--max-records", type=int, default=100000, help="Cumulative source import budget"
+        "--max-records",
+        type=int,
+        default=None,
+        help="Explicit cumulative source import budget; omitted preserves existing allowance",
     )
     parser.add_argument(
         "--discover-cities",
@@ -178,6 +196,18 @@ def main():
     )
     args = parser.parse_args()
     args.new_pages = 0
+    if args.refresh_existing and not args.apply:
+        parser.error("refresh-existing requires apply")
+    if args.import_only:
+        catalog_path = args.output_dir / "cities.json"
+        if not catalog_path.exists():
+            parser.error("Missing cities.json in output-dir")
+        catalog_release = validate_release(json.loads(catalog_path.read_text())["release"])
+        if args.release is not None and args.release != catalog_release:
+            parser.error("Catalog release differs from explicit release")
+        args.release = catalog_release
+    else:
+        args.release = args.release or RELEASE
     if not 1 <= args.max_new_pages <= 100000:
         parser.error("max-new-pages must be 1..100000")
     if (
@@ -194,7 +224,7 @@ def main():
         parser.error(
             "apply requires env-file; import-only requires apply; prepare-only cannot apply"
         )
-    if not 1 <= args.max_records <= 100000:
+    if args.max_records is not None and not 1 <= args.max_records <= 100000:
         parser.error("max-records must be 1..100000")
     if args.apply:
         from app.bulk_collect import check_readiness, load_settings
@@ -248,7 +278,7 @@ def main():
     if catalog_path.exists():
         catalog = json.loads(catalog_path.read_text())
         if (
-            catalog["release"] != RELEASE
+            catalog["release"] != args.release
             or catalog["requested"] != ids
             or catalog.get("radius_km") != args.radius_km
             or catalog.get("tile_km", 20) != args.tile_km
@@ -256,7 +286,7 @@ def main():
             parser.error("City list/release changed; choose a new output directory")
     else:
         catalog = {
-            "release": RELEASE,
+            "release": args.release,
             "requested": ids,
             "cities": {},
             "skipped": {},
@@ -306,13 +336,19 @@ def main():
         )
         if args.prepare_only:
             return
-        sources = partitions(client)
+        sources = partitions(client, args.release)
     failures = []
     limited = []
     for qid, cfg in catalog["cities"].items():
         if args.radius_km is not None:
             failed_pages, limited_tiles = collect_region(
-                cfg, sources, args, catalog_path, collect, completed, apply_file
+                cfg,
+                sources,
+                args,
+                catalog_path,
+                partial(collect, release=args.release),
+                partial(completed, release=args.release),
+                apply_file,
             )
             failures.extend(failed_pages)
             limited.extend(limited_tiles)
@@ -324,7 +360,7 @@ def main():
             failures.append(qid)
         for part in matching:
             path = args.output_dir / f"{qid}-{Path(part['url']).name.split('-')[1]}.json"
-            if completed(path, cfg, part["url"]):
+            if completed(path, cfg, part["url"], release=args.release):
                 print(json.dumps({"event": "already_downloaded", "city": qid}), flush=True)
                 if args.apply and not apply_file(path, catalog_path, args):
                     failures.append(qid)
@@ -340,7 +376,7 @@ def main():
                 flush=True,
             )
             try:
-                collect(cfg, path, part["url"])
+                collect(cfg, path, part["url"], release=args.release)
                 if args.apply and not apply_file(path, catalog_path, args):
                     failures.append(qid)
             except Exception as error:
@@ -354,6 +390,8 @@ def main():
             break
     report = {
         "event": "batch_finished",
+        "release": args.release,
+        "refresh_existing": args.refresh_existing,
         "failed": sorted(set(failures)),
         "skipped": catalog["skipped"],
         "coverage": "grid-paged centre rectangle"

@@ -48,7 +48,7 @@ jobs:
       - name: Static checks and executable contract artifacts
         run: |
           python -m ruff check --config backend/pyproject.toml backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py scripts/collect_overture.py scripts/collect_overture_batch.py scripts/overture_expansion.py scripts/overture_transport.py scripts/import_overture.py
-          python -m ruff format --check backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py scripts/collect_overture.py scripts/collect_overture_batch.py scripts/overture_expansion.py scripts/overture_transport.py scripts/import_overture.py
+          python -m ruff format --check --config backend/pyproject.toml backend/app backend/tests scripts/generate_response_models.py scripts/generate_harmony_models.py scripts/generate_data_dictionary.py scripts/collect_overture.py scripts/collect_overture_batch.py scripts/overture_expansion.py scripts/overture_transport.py scripts/import_overture.py
           python -m mypy --config-file backend/pyproject.toml backend/app
           python scripts/generate_response_models.py --check
           python scripts/generate_harmony_models.py --check
@@ -62,7 +62,7 @@ jobs:
       - name: PostgreSQL critical business regressions
         env:
           ITERATION_HTTP_DATABASE_URL: postgresql+psycopg://integration@localhost:5432/yirenyoulu_test
-        run: python -m pytest backend/tests/test_accounts.py backend/tests/test_trips.py backend/tests/test_data_tasks.py -q
+        run: python -m pytest backend/tests -q
   backend-container:
     runs-on: ubuntu-latest
     steps:

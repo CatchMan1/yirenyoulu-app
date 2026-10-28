@@ -48,9 +48,12 @@ PYTHONPATH=backend .venv/bin/python -m app.bulk_collect --env-file .env run --co
 ```sh
 PYTHONPATH=backend .venv/bin/python -m app.data_operator --help
 PYTHONPATH=backend .venv/bin/python -m app.data_operator coverage
+PYTHONPATH=backend .venv/bin/python -m app.data_operator quality --stale-days 30
 # 部署时通过受控定时任务执行并监控；读取端到期拒绝不依赖此命令先运行。
 PYTHONPATH=backend .venv/bin/python -m app.data_operator expire
 ```
+
+日常版本更新、质量报告、人工操作周期及失败恢复见[地点数据维护手册](../docs/技术开发/03数据库/地点数据维护手册.md)。Overture 默认仅铺入新ID；显式刷新及停业处理需按手册先预览、后应用。
 
 ## 接口与错误
 
@@ -69,7 +72,7 @@ PYTHONPATH=backend .venv/bin/python -m pytest backend/tests -q
 PYTHONPATH=backend .venv/bin/python scripts/generate_data_dictionary.py --check
 ```
 
-保留4组关键回归：账户与权限、行程事务、数据导入/任务/采集续跑、迁移往返。测试夹具和契约校验集中在tests目录，不进入运行镜像。PostgreSQL迁移往返必须从新的空测试库开始；业务回归另设ITERATION_HTTP_DATABASE_URL，必须指向专用yirenyoulu_test，测试会清空其业务表。不要在开发或生产库运行。SQLite与跳过的集成项不作为PostgreSQL证据。
+关键回归覆盖账户与权限、行程事务、数据导入/任务/采集续跑、Overture更新、城市质量报告及迁移往返。测试夹具和契约校验集中在tests目录，不进入运行镜像。PostgreSQL迁移往返必须从新的空测试库开始；业务回归另设ITERATION_HTTP_DATABASE_URL，必须指向专用yirenyoulu_test，测试会清空其业务表。不要在开发或生产库运行。SQLite与跳过的集成项不作为PostgreSQL证据。
 
 ## 容器与部署
 

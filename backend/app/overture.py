@@ -1,19 +1,38 @@
 """Conservative adapter for reviewed Overture Places snapshots."""
 
+import re
 import struct
+from datetime import date
 
 from .ingestion import PlaceRecord
 
 LICENSES = {"CDLA-Permissive-2.0", "CC0-1.0", "Apache-2.0"}
 
 
+def release_key(value: str) -> tuple[date, int]:
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]{1,3}", value
+    ):
+        raise ValueError("INVALID_RELEASE")
+    day, sequence = value.split(".")
+    return date.fromisoformat(day), int(sequence)
+
+
 def adapt_record(
-    row: dict, *, city_names: list[str], bounds: list[float], release: str, observed_at: str
+    row: dict,
+    *,
+    city_names: list[str],
+    bounds: list[float],
+    release: str,
+    observed_at: str,
+    allow_closed: bool = False,
 ) -> dict:
     sources = row.get("sources") or []
     if not sources or any(s.get("license") not in LICENSES for s in sources):
         raise ValueError("SOURCE_LICENSE_UNVERIFIED")
-    if row.get("operating_status") not in {None, "open"}:
+    if row.get("operating_status") not in (
+        {None, "open", "permanently_closed"} if allow_closed else {None, "open"}
+    ):
         raise ValueError("OPERATING_STATUS_UNVERIFIED")
     confidence = row.get("confidence")
     if not isinstance(confidence, (float, int)) or not 0.8 <= confidence <= 1:
@@ -59,6 +78,10 @@ def adapt_record(
             "confidence": confidence,
         },
     }
+    if row.get("operating_status") == "permanently_closed":
+        value["status"] = "inactive"
+    elif allow_closed and row.get("operating_status") == "open":
+        value["status"] = "active"
     if addresses[0].get("freeform"):
         value["address"] = addresses[0]["freeform"]
     return PlaceRecord.model_validate(value).model_dump(mode="json", exclude_unset=True)

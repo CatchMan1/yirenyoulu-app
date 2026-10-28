@@ -3,9 +3,11 @@
 import argparse
 import json
 import os
+import re
 import tempfile
 import threading
 import time
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 RELEASE = "2026-10-21.0"
@@ -38,8 +40,21 @@ AND (list_contains(taxonomy.hierarchy,'hotel') OR list_contains(taxonomy.hierarc
 PAGE_QUERY = QUERY.replace(" LIMIT 2000", " AND id > ? ORDER BY id LIMIT 2000")
 
 
-def collect(cfg, output, url=URL, *, query_bounds=None, after=None):
+def validate_release(value):
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]{1,3}", value
+    ):
+        raise ValueError("INVALID_RELEASE")
+    try:
+        date.fromisoformat(value.split(".")[0])
+    except ValueError:
+        raise ValueError("INVALID_RELEASE") from None
+    return value
+
+
+def collect(cfg, output, url=URL, *, query_bounds=None, after=None, release=RELEASE):
     """Write one complete bounded snapshot; never overwrite an existing file."""
+    validate_release(release)
     import duckdb
     from overture_transport import paced_file
 
@@ -65,7 +80,8 @@ def collect(cfg, output, url=URL, *, query_bounds=None, after=None):
             records = [dict(zip(columns, row)) for row in cur.fetchall()]
         print(json.dumps({"requests": budget.requests, "bytes": budget.bytes}))
         result = {
-            "release": RELEASE,
+            "release": release,
+            "downloaded_at": datetime.now(timezone.utc).isoformat(),
             "city": cfg,
             "source_url": url,
             "records": records,

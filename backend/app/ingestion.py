@@ -355,7 +355,24 @@ def _apply_row(db, batch, row, policy):
         place = db.get(Place, external.place_id)
         if place.city_id != batch.city_id or place.kind != batch.kind:
             raise ValueError("IDENTITY_CONFLICT")
-        if external.fetched_at and aware(external.fetched_at) > value.observed_at:
+        release_newer = None
+        if value.source_url == "https://docs.overturemaps.org/attribution/" and value.evidence.get(
+            "release"
+        ):
+            previous = db.get(PlaceFieldProvenance, (place.id, "name"))
+            old_release = (
+                (previous.context or {}).get("evidence", {}).get("release") if previous else None
+            )
+            if old_release:
+                from .overture import release_key
+
+                release_newer = release_key(value.evidence["release"]) > release_key(old_release)
+        # Recheck under the source lock; a preflight read cannot guard a delayed old batch.
+        if release_newer is False or (
+            release_newer is None
+            and external.fetched_at
+            and aware(external.fetched_at) > value.observed_at
+        ):
             row.status = "skipped"
             row.error_code = "OLDER_OBSERVATION"
             row.result_action = "older"
@@ -404,7 +421,13 @@ def _apply_row(db, batch, row, policy):
     place.normalized_name = normalize_place_name(value.name)
     place.address = value.address
     place.description = value.description
-    place.status = value.status
+    # Unknown operation must not reopen a source-confirmed permanent closure.
+    if not (
+        value.source_url == "https://docs.overturemaps.org/attribution/"
+        and value.evidence.get("operating_status") is None
+        and place.status == "inactive"
+    ):
+        place.status = value.status
     place.checked_at = value.observed_at
     place.currency = value.currency
     place.longitude = value.coordinates.longitude if value.coordinates else None

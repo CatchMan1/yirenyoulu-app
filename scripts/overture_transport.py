@@ -41,9 +41,7 @@ def paced_file(url):
                         self.send_error(503)
                         return
                     size = int(response.headers.get("content-length", "0"))
-                    if method == "GET" and (
-                        size <= 0 or size > budget.max_bytes - budget.bytes
-                    ):
+                    if method == "GET" and (size <= 0 or size > budget.max_bytes - budget.bytes):
                         self.send_error(413)
                         return
                     self.send_response(response.status_code)
