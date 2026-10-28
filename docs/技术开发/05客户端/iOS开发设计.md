@@ -1,8 +1,8 @@
 # iOS客户端开发设计
 
-技术栈为React Native + TypeScript。两端共享业务契约，ArkTS页面不直接复用。
+技术栈为React Native + TypeScript。两端共享业务契约，ArkTS页面不直接复用。第三期范围、自然青绿视觉与阶段验收以[第03期需求](../../产品/04迭代需求/第03期-iOS客户端设计与核心业务联调.md)为准；完整首版的地图与AI等能力分期接入。
 
-目标目录frontend/ios，结构按features（auth/catalog/trips/chat/profile）与必要的api/components/platform分层。采用支持可维护原生iOS工程的工作流以接入地图和安全存储；Expo开发构建或原生工程的最终选择在SDK可用性小验证后记录，不承诺Expo Go容纳所有地图SDK。React Native、Xcode、最低iOS及依赖版本届时验证并锁定，
+目标目录frontend/ios，结构按features（auth/catalog/trips/chat/profile）与必要的api/components/platform分层。采用支持可维护原生iOS工程的工作流以接入地图和安全存储；Expo开发构建或原生工程的最终选择在SDK可用性小验证后记录，不承诺Expo Go容纳所有地图SDK。React Native、Xcode、最低iOS及依赖版本届时验证并锁定。
 
 ## 客户端职责
 
